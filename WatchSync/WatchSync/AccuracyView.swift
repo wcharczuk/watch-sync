@@ -71,9 +71,10 @@ struct AccuracyView: View {
             // at, and letting it stretch keeps the idle screen from being mostly
             // dead space.
             rateChart
-                .frame(minHeight: 128, maxHeight: .infinity)
+                .frame(height: 132)
             metricsRow
             if showDetail { detailLine }
+            Spacer(minLength: 0)
             actionButtons
         }
         .padding(.horizontal)
@@ -307,7 +308,7 @@ struct AccuracyView: View {
     // MARK: Paper tape
 
     private var rateChart: some View {
-        MeasurementChartView(result: viewModel.result)
+        RateAxisView(result: viewModel.result)
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .fill(Color(uiColor: .secondarySystemBackground))
@@ -468,137 +469,101 @@ struct AccuracyView: View {
     }
 }
 
-// MARK: - Measurement chart
+// MARK: - Rate axis
 
-/// An honest report on the measurement, not a verdict on the watch.
+/// One axis, in seconds per day: where the reading sits, and how well we know it.
 ///
-/// It answers three questions and nothing else: how well are we hearing the
-/// tick, what slice of the spectrum are we listening to, and has that slice had
-/// to move? Earlier versions plotted cumulative drift (a straight line by
-/// construction, so it just restated the number) and then per-window rates (a
-/// noise cloud). Neither told you anything about whether to trust the reading.
+/// No spec bands, no chronometer zones, no verdict about the watch — those are
+/// judgements this app has no business making. What it shows is the measurement:
+/// every independent sub-window as a tick, the published rate as a marker, and
+/// the ± as a bar through it that visibly shrinks as the reading tightens.
 ///
-/// Detection is the height; jitter — the timing scatter that actually limits
-/// accuracy — is the colour, because a window can miss beats and still time the
-/// ones it finds beautifully.
-private struct MeasurementChartView: View {
+/// Earlier attempts plotted cumulative drift (a straight line by construction,
+/// restating the number) and per-window detection bars (honest, but about the
+/// microphone rather than the answer).
+private struct RateAxisView: View {
     let result: TimegrapherResult?
 
-    private func jitterColor(_ ms: Double) -> Color {
-        if ms < 0.15 { return .green }
-        if ms < 0.3 { return .yellow }
-        return .orange
-    }
-
     var body: some View {
-        VStack(spacing: 6) {
-            bandStrip
-            Canvas { context, size in
-                let left: CGFloat = 40, inset: CGFloat = 8
-                guard let r = result, r.qualitySamples.count >= 2 else {
-                    context.draw(Text(result?.beatsTracked ?? 0 > 0
-                                      ? "listening…" : "waiting for the tick")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary),
-                                 at: CGPoint(x: size.width / 2, y: size.height / 2))
-                    return
-                }
-                let samples = r.qualitySamples
-                let t0 = samples[0].time
-                let tSpan = max(4.0, (samples.last?.time ?? t0) - t0)
-                let plotW = size.width - left - inset
-                let plotH = size.height - 2 * inset
+        Canvas { context, size in
+            let inset: CGFloat = 22
+            let axisY = size.height * 0.56
+            let plotW = size.width - 2 * inset
 
-                func pt(_ time: Double, _ frac: Double) -> CGPoint {
-                    CGPoint(x: left + (time - t0) / tSpan * plotW,
-                            y: inset + (1 - frac) * plotH)
-                }
-
-                // Gridlines at 100% and 50% detection.
-                for frac in [1.0, 0.5] {
-                    var g = Path()
-                    g.move(to: pt(t0, frac))
-                    g.addLine(to: pt(t0 + tSpan, frac))
-                    context.stroke(g, with: .color(.secondary.opacity(frac == 1 ? 0.3 : 0.15)),
-                                   style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    context.draw(Text(frac == 1 ? "100%" : "50%")
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(.secondary),
-                                 at: CGPoint(x: left - 4, y: pt(t0, frac).y), anchor: .trailing)
-                }
-
-                // Bars: height = beats detected, colour = how precisely timed.
-                let barW = max(2.0, plotW / Double(samples.count) - 2)
-                for s in samples {
-                    let top = pt(s.time, max(0.02, s.detection))
-                    let rect = CGRect(x: top.x - barW / 2, y: top.y,
-                                      width: barW, height: pt(t0, 0).y - top.y)
-                    context.fill(Path(roundedRect: rect, cornerRadius: 1.5),
-                                 with: .color(jitterColor(s.jitterMs).opacity(0.85)))
-                }
+            guard let r = result, let rate = r.rateSecondsPerDay, let unc = r.uncertainty else {
+                context.draw(Text(result?.beatsTracked ?? 0 > 0
+                                  ? "measuring…" : "waiting for the tick")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary),
+                             at: CGPoint(x: size.width / 2, y: axisY))
+                return
             }
-            legend
-        }
-        .padding(.vertical, 6)
-    }
 
-    /// Where in the spectrum we're listening, drawn to scale across the range
-    /// the app can choose from — so "which frequencies" is a picture, not a
-    /// number to interpret.
-    @ViewBuilder
-    private var bandStrip: some View {
-        if let r = result, r.bandLowHz > 0 {
-            let lowest = 4000.0, highest = 23000.0
-            VStack(spacing: 2) {
-                HStack {
-                    Text("Listening \(Int(r.bandLowHz / 1000))–\(Int(r.bandHighHz / 1000)) kHz")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.primary)
-                    if r.retuneCount > 0 {
-                        Text("· re-tuned \(r.retuneCount)×")
-                            .font(.system(size: 11))
-                            .foregroundColor(.orange)
-                    }
-                    Spacer()
-                    Text("of 4–23 kHz")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-                GeometryReader { geo in
-                    let x0 = (r.bandLowHz - lowest) / (highest - lowest) * geo.size.width
-                    let x1 = (r.bandHighHz - lowest) / (highest - lowest) * geo.size.width
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color(uiColor: .tertiarySystemFill))
-                        Capsule()
-                            .fill(Color.accentColor.opacity(0.7))
-                            .frame(width: max(4, x1 - x0))
-                            .offset(x: x0)
-                    }
-                }
-                .frame(height: 5)
-            }
-            .padding(.horizontal, 4)
-        }
-    }
+            // A span that always contains zero, the ± and every sub-window, then
+            // rounded outward to a whole number of seconds so the labels are
+            // readable rather than arbitrary.
+            var reach = max(abs(rate) + unc, 5)
+            for s in r.rateSamples { reach = max(reach, abs(s.rate)) }
+            let step: Double = reach <= 6 ? 2 : (reach <= 15 ? 5 : 10)
+            let limit = (reach / step).rounded(.up) * step
 
-    private var legend: some View {
-        HStack(spacing: 10) {
-            Text("Beats detected")
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
-            Spacer()
-            Text("timing")
-                .font(.system(size: 9))
-                .foregroundColor(.secondary)
-            ForEach([("< 0.15", Color.green), ("< 0.3", Color.yellow),
-                     ("> 0.3 ms", Color.orange)], id: \.0) { label, color in
-                HStack(spacing: 3) {
-                    Circle().fill(color).frame(width: 6, height: 6)
-                    Text(label).font(.system(size: 9)).foregroundColor(.secondary)
-                }
+            func x(_ value: Double) -> CGFloat {
+                inset + CGFloat((value + limit) / (2 * limit)) * plotW
             }
+
+            // Axis.
+            var axis = Path()
+            axis.move(to: CGPoint(x: inset, y: axisY))
+            axis.addLine(to: CGPoint(x: size.width - inset, y: axisY))
+            context.stroke(axis, with: .color(.secondary.opacity(0.4)),
+                           style: StrokeStyle(lineWidth: 1))
+
+            var value = -limit
+            while value <= limit + 0.001 {
+                let isZero = abs(value) < 0.001
+                var tick = Path()
+                tick.move(to: CGPoint(x: x(value), y: axisY - (isZero ? 8 : 4)))
+                tick.addLine(to: CGPoint(x: x(value), y: axisY + (isZero ? 8 : 4)))
+                context.stroke(tick, with: .color(.secondary.opacity(isZero ? 0.8 : 0.4)),
+                               style: StrokeStyle(lineWidth: isZero ? 1.5 : 1))
+                context.draw(Text(isZero ? "0" : String(format: "%+.0f", value))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.secondary),
+                             at: CGPoint(x: x(value), y: axisY + 16), anchor: .top)
+                value += step
+            }
+
+            context.draw(Text("slow").font(.system(size: 9)).foregroundColor(.secondary),
+                         at: CGPoint(x: inset, y: axisY + 32), anchor: .leading)
+            context.draw(Text("fast").font(.system(size: 9)).foregroundColor(.secondary),
+                         at: CGPoint(x: size.width - inset, y: axisY + 32), anchor: .trailing)
+
+            // Each independent sub-window, as a tick above the axis. The width of
+            // this cloud is the raw scatter; the ± below is what it implies about
+            // the average.
+            for sample in r.rateSamples {
+                var mark = Path()
+                mark.move(to: CGPoint(x: x(sample.rate), y: axisY - 12))
+                mark.addLine(to: CGPoint(x: x(sample.rate), y: axisY - 26))
+                context.stroke(mark, with: .color(.secondary.opacity(0.45)),
+                               style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+            }
+            if !r.rateSamples.isEmpty {
+                context.draw(Text("\(r.rateSamples.count) independent windows")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary),
+                             at: CGPoint(x: size.width / 2, y: axisY - 34), anchor: .bottom)
+            }
+
+            // The reading: a bar the width of the ±, with the marker on it.
+            let barY = axisY - 2
+            let barRect = CGRect(x: x(rate - unc), y: barY - 3,
+                                 width: max(4, x(rate + unc) - x(rate - unc)), height: 6)
+            context.fill(Path(roundedRect: barRect, cornerRadius: 3),
+                         with: .color(.accentColor.opacity(0.35)))
+            let dot = Path(ellipseIn: CGRect(x: x(rate) - 5, y: barY - 5, width: 10, height: 10))
+            context.fill(dot, with: .color(.accentColor))
         }
-        .padding(.horizontal, 4)
     }
 }
 
@@ -751,7 +716,7 @@ private struct HelpView: View {
                     )
                     section(
                         title: "The chart",
-                        body: "This reports on the measurement, not on your watch. Bar height is the share of expected beats actually detected in that couple of seconds; the colour is how precisely those beats were timed, which is what limits accuracy. Above it is the slice of the spectrum being listened to, drawn against the full 4–23 kHz the app can choose from — escapements sound different from watch to watch, so it picks the band where the tick is sharpest and says so."
+                        body: "One axis in seconds per day. The marker is the reading and the bar through it is the ±, so the bar visibly narrows as the measurement tightens. The small ticks above the axis are the independent windows the reading was averaged from — their spread is the raw scatter, the bar is what that implies about the average. There are deliberately no \"good/bad\" zones: what counts as acceptable depends on the watch, and that judgement isn't the app's to make."
                     )
                     section(
                         title: "Beat error",
