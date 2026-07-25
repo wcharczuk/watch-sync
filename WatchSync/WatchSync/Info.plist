@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Xcode's GENERATE_INFOPLIST_FILE only emits a fixed allowlist of
+	  INFOPLIST_KEY_* build settings, and UIFileSharingEnabled is not on it —
+	  setting it in the project silently produced no key at all, which is why
+	  the app never appeared in the Files app. Keys placed in this file are
+	  merged with the generated ones, so this is where anything outside the
+	  allowlist has to live.
+
+	  Without this, saved recordings are written but unreachable except over USB.
+	-->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+</dict>
+</plist>

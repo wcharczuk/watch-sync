@@ -1,36 +1,66 @@
 import Foundation
 
-/// A point on the rate-drift trace (cumulative timing offset over the recording).
-struct PhasePoint {
-    let time: Double        // seconds
-    let offsetMs: Double    // cumulative timing offset (ms); slope = rate
+/// A point on the paper tape: a beat's cumulative timing offset against a
+/// perfect clock. The slope of this line *is* the rate.
+struct BeatPoint {
+    let time: Double        // seconds into the recording
+    let offsetMs: Double    // (actual − nominal) beat time, ms
+    let accepted: Bool      // false = rejected by the outlier filter
+}
+
+/// What the measurement is doing right now. One source of truth — the view
+/// renders this instead of forming its own opinion from the raw metrics.
+enum MeasurementStage {
+    /// Audio is live but there isn't enough of it to work with yet.
+    case listening
+    /// Choosing the listening band and identifying the beat rate.
+    case tuning
+    /// Beat rate known; timing individual ticks, no number to stand behind yet.
+    case locking
+    /// Tracking, with a published rate that is still tightening.
+    case measuring
+    /// The rate has reached the target precision.
+    case done
+    /// Tracking, but ticks are being lost — the user can fix this.
+    case unstable
+    /// Nothing that looks like an escapement, after a fair amount of listening.
+    case noSignal
 }
 
 /// Result of one analysis pass.
 struct TimegrapherResult {
-    /// Nominal beat rate (auto-detected or manual override).
+    let stage: MeasurementStage
+
+    /// Nominal beat rate (auto-detected or manual override); 0 until identified.
     let beatsPerHour: Int
-    /// Beat frequency (beats/second) = beatsPerHour / 3600.
-    let beatsPerSecond: Double
-    /// Rate deviation: positive = fast, negative = slow (s/day).
-    let rateSecondsPerDay: Double
-    /// 1σ uncertainty on the rate (s/day).
-    let rateUncertainty: Double
-    /// Lock-in amplitude SNR — how cleanly the tick stands above the noise.
-    let amplitudeSNR: Double
-    /// Tick-line prominence over the local noise floor (signal quality).
-    let lineSeparation: Double
-    /// 0…1 overall quality estimate.
-    let confidence: Double
-    /// Seconds of audio analyzed.
+    /// Rate deviation: positive = fast, negative = slow (s/day). nil until there
+    /// is enough independent data to stand behind a number.
+    let rateSecondsPerDay: Double?
+    /// Published ± on the rate (s/day).
+    let uncertainty: Double?
+    /// Tic-to-toc asymmetry (ms) — the classic timegrapher beat-error figure.
+    let beatErrorMs: Double?
+
+    // Signal quality — "can I hear it", kept separate from "how sure is the number".
+    /// Per-beat timing scatter (ms). Under ~0.15 ms is a clean tick.
+    let jitterMs: Double
+    /// Fraction of expected beats that matched the tick template.
+    let detectionRate: Double
+    /// Median template match score (0…1).
+    let matchScore: Double
+
+    let beatsTracked: Int
     let elapsedSeconds: Double
-    /// True once the signal is clean enough to trust the reading.
-    let isCalibrated: Bool
-    /// The auto-selected band-pass window (Hz) the reading was taken from.
     let bandLowHz: Double
     let bandHighHz: Double
-    /// Cumulative timing-offset trace for the drift visualization.
-    let trace: [PhasePoint]
+
+    /// 0…1 toward the target precision. Monotonic by construction.
+    let progress: Double
+    /// Estimated seconds still needed to reach the target precision.
+    let secondsRemaining: Double?
+
+    /// Paper tape: cumulative beat offset vs time.
+    let trace: [BeatPoint]
 }
 
 /// A second-order IIR biquad (transposed direct form II).
@@ -64,14 +94,463 @@ struct Biquad {
     }
 }
 
+// MARK: - Beat tracker
+
+/// Times every beat in one listening band.
+///
+/// Band-pass → rectify → decimate to a 4 kHz envelope; build a tick template by
+/// averaging beats; matched-filter each beat, predicting where it should fall
+/// from a running fit of the beats already timed — so the period refines itself
+/// and no separate period estimator is needed. The rate is the slope of beat
+/// time vs beat number.
+private final class BeatTracker {
+    static let templateMs = 14.0     // tick template length
+    static let templatePreMs = 2.0   // template starts this far before the peak
+    static let searchMs = 12.0       // ± search window around a predicted beat
+    static let minScore = 0.35       // template match floor for accepting a beat
+
+    let lo: Double, hi: Double, bph: Int
+    let nominalCycle: Double         // seconds per tic-toc cycle
+    private(set) var envRate: Double
+
+    private var hp: Biquad, lp: Biquad, smooth: Biquad
+    private var acc = 0.0, count = 0
+    private let decim: Int
+    private(set) var env: [Double] = []
+
+    private(set) var template: [Double] = []
+    private(set) var beatK: [Int] = []
+    private(set) var beatT: [Double] = []
+    private(set) var beatScore: [Double] = []
+    private(set) var beatKeep: [Bool] = []
+    private var nextBeat = 0
+
+    private(set) var slope = 0.0         // seconds per cycle
+    private(set) var intercept = 0.0
+    private(set) var haveFit = false
+    /// Beat count at the last refold; 0 = never folded.
+    private(set) var refolded = 0
+    private(set) var beatErrorMs: Double?
+
+    init(lo: Double, hi: Double, bph: Int, sampleRate: Double, targetEnvRate: Double) {
+        self.lo = lo
+        self.hi = hi
+        self.bph = bph
+        self.nominalCycle = 7200.0 / Double(bph)
+        self.decim = max(1, Int((sampleRate / targetEnvRate).rounded()))
+        self.envRate = sampleRate / Double(decim)
+        self.hp = .highpass(fc: lo, fs: sampleRate)
+        self.lp = .lowpass(fc: min(hi, sampleRate / 2 - 500), fs: sampleRate)
+        self.smooth = .lowpass(fc: envRate / 3, fs: sampleRate)
+    }
+
+    private var templateLength: Int { max(8, Int(Self.templateMs * envRate / 1000)) }
+    private var templatePre: Int { Int(Self.templatePreMs * envRate / 1000) }
+    private var searchSamples: Int { max(2, Int(Self.searchMs * envRate / 1000)) }
+
+    var periodSamples: Double { nominalCycle * envRate }
+    var envSeconds: Double { Double(env.count) / envRate }
+
+    // MARK: Envelope
+
+    func extend(_ src: [Float]) {
+        env.reserveCapacity(env.count + src.count / decim + 1)
+        for v in src {
+            let band = lp.process(hp.process(Double(v)))
+            let y = smooth.process(abs(band))
+            acc += y; count += 1
+            if count >= decim { env.append(acc / Double(decim)); acc = 0; count = 0 }
+        }
+    }
+
+    // MARK: Tracking
+
+    /// Advance the tracker over whatever envelope has arrived. Returns false if
+    /// there is still nothing that looks like a tick.
+    @discardableResult
+    func step() -> Bool {
+        if template.isEmpty {
+            guard envSeconds >= 2.5, bootstrapTemplate() else { return false }
+        }
+        trackNewBeats()
+        refit()
+        // Refold whenever the beat count has doubled since the last one: each
+        // refold averages more beats, so the template keeps sharpening, and one
+        // bad early template can't poison the whole measurement.
+        if acceptedCount >= max(60, 2 * refolded) {
+            if refoldTemplate() {
+                refolded = acceptedCount
+                retrackAll()
+            } else {
+                refolded = max(refolded, acceptedCount)
+            }
+        }
+        return true
+    }
+
+    /// Autocorrelation period, searched several cycles out for precision.
+    ///
+    /// The nominal period is only as good as the watch's own rate error — fine
+    /// for tracking, not for *folding*: across a couple of dozen cycles that
+    /// error smears the averaged tick. Locking the period first makes the very
+    /// first template as sharp as the ones that come later.
+    private func refinePeriod() -> Double {
+        let p0 = periodSamples
+        let n = env.count
+        var mean = 0.0
+        for v in env { mean += v }
+        mean /= Double(n)
+        let k = max(1, min(12, Int(Double(n) / (2 * p0))))
+        let tol = 0.005                     // 0.5% covers any real watch
+        let lo = Int(Double(k) * p0 * (1 - tol))
+        let hi = Int(Double(k) * p0 * (1 + tol)) + 1
+        guard lo > 0, hi + 4 < n else { return p0 }
+        var ac = [Double](repeating: 0, count: hi - lo + 1)
+        for (idx, lag) in (lo...hi).enumerated() {
+            var s = 0.0
+            for i in 0..<(n - lag) { s += (env[i] - mean) * (env[i + lag] - mean) }
+            ac[idx] = s / Double(n - lag)
+        }
+        var best = 0
+        for i in 0..<ac.count where ac[i] > ac[best] { best = i }
+        var frac = 0.0
+        if best > 0, best < ac.count - 1 {
+            let y0 = ac[best - 1], y1 = ac[best], y2 = ac[best + 1]
+            let den = y0 - 2 * y1 + y2
+            if den != 0 { frac = 0.5 * (y0 - y2) / den }
+        }
+        return (Double(lo + best) + frac) / Double(k)
+    }
+
+    /// Build the first template by folding, not by grabbing the loudest peak:
+    /// the loudest peak in the first seconds is as likely to be a knock as a
+    /// tick, whereas folding averages every beat heard so far.
+    private func bootstrapTemplate() -> Bool {
+        let period = refinePeriod()
+        let L = Int(period)
+        guard L > templateLength * 2, env.count >= 3 * L else { return false }
+        let cycles = Int(Double(env.count) / period)
+        guard cycles >= 3 else { return false }
+        var acc = [Double](repeating: 0, count: L)
+        var folded = 0
+        for c in 0..<cycles {
+            let s = Int((Double(c) * period).rounded())
+            guard s + L <= env.count else { continue }
+            for j in 0..<L { acc[j] += env[s + j] }
+            folded += 1
+        }
+        guard folded >= 3 else { return false }
+        var wf = acc.map { $0 / Double(folded) }
+        var sorted = wf
+        sorted.sort()
+        let baseline = sorted[sorted.count / 2]
+        for i in 0..<L { wf[i] -= baseline }
+
+        var peak = 0
+        for i in 0..<L where wf[i] > wf[peak] { peak = i }
+        var absMean = 0.0
+        for v in wf { absMean += abs(v) }
+        absMean /= Double(L)
+        // A silent or hiss-only recording folds flat — nothing to lock onto.
+        guard wf[peak] > 2 * absMean else { return false }
+
+        var tpl = [Double](repeating: 0, count: templateLength)
+        for i in 0..<templateLength {
+            tpl[i] = wf[((peak - templatePre + i) % L + L) % L]
+        }
+        template = tpl
+        // The fold is phase-locked to the start of the envelope, so beat zero
+        // sits at the template's own offset within the first cycle.
+        slope = period / envRate
+        intercept = Double(max(0, peak - templatePre)) / envRate
+        haveFit = true
+        nextBeat = 0
+        return true
+    }
+
+    private func retrackAll() {
+        beatK.removeAll(keepingCapacity: true)
+        beatT.removeAll(keepingCapacity: true)
+        beatScore.removeAll(keepingCapacity: true)
+        beatKeep.removeAll(keepingCapacity: true)
+        nextBeat = 0
+        trackNewBeats()
+        refit()
+    }
+
+    /// A fitted period this far from nominal isn't a watch — it's a fit that has
+    /// come apart on noise. 2% is 1728 s/day, so nothing real is ever rejected.
+    private var slopeIsPlausible: Bool {
+        slope > nominalCycle * 0.98 && slope < nominalCycle * 1.02
+    }
+
+    private func trackNewBeats() {
+        guard !template.isEmpty, slopeIsPlausible else { return }
+        let L = template.count
+        let search = searchSamples
+        var tpl = template
+        var tmean = 0.0
+        for v in tpl { tmean += v }
+        tmean /= Double(L)
+        for i in 0..<L { tpl[i] -= tmean }
+        var tnorm = 0.0
+        for v in tpl { tnorm += v * v }
+        tnorm = tnorm.squareRoot()
+        guard tnorm > 0 else { return }
+
+        var corr = [Double](repeating: 0, count: 2 * search + 1)
+        while true {
+            let predicted = intercept + slope * Double(nextBeat)
+            let centre = Int((predicted * envRate).rounded())
+            let from = centre - search
+            guard centre + search + L < env.count else { break }
+            if from < 0 { nextBeat += 1; continue }
+
+            var bestJ = 0
+            for j in 0...(2 * search) {
+                let s = from + j
+                var mean = 0.0
+                for i in 0..<L { mean += env[s + i] }
+                mean /= Double(L)
+                var dot = 0.0, norm = 0.0
+                for i in 0..<L {
+                    let d = env[s + i] - mean
+                    dot += d * tpl[i]
+                    norm += d * d
+                }
+                corr[j] = dot / (norm.squareRoot() * tnorm + 1e-12)
+                if corr[j] > corr[bestJ] { bestJ = j }
+            }
+            var frac = 0.0
+            if bestJ > 0, bestJ < 2 * search {
+                let y0 = corr[bestJ - 1], y1 = corr[bestJ], y2 = corr[bestJ + 1]
+                let den = y0 - 2 * y1 + y2
+                if den != 0 { frac = 0.5 * (y0 - y2) / den }
+            }
+            beatK.append(nextBeat)
+            beatT.append((Double(from + bestJ) + frac) / envRate)
+            beatScore.append(corr[bestJ])
+            beatKeep.append(corr[bestJ] >= Self.minScore)
+            nextBeat += 1
+        }
+    }
+
+    /// Iteratively reweighted least squares of beat time vs beat number. The
+    /// reweighting drops beats swamped by a knock or a momentary dropout.
+    private func refit() {
+        guard beatK.count >= 8 else { return }
+        var keep = beatKeep
+        for _ in 0..<4 {
+            var sw = 0.0, sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0
+            for i in 0..<beatK.count where keep[i] {
+                let x = Double(beatK[i]), y = beatT[i]
+                sw += 1; sx += x; sy += y; sxx += x * x; sxy += x * y
+            }
+            guard sw >= 4 else { return }
+            let den = sxx - sx * sx / sw
+            guard den > 0 else { return }
+            // Keep the previous fit rather than accept an implausible period: a
+            // runaway slope would send the next tracking pass hunting for beats
+            // that will never arrive.
+            let newSlope = (sxy - sx * sy / sw) / den
+            guard newSlope > nominalCycle * 0.98, newSlope < nominalCycle * 1.02 else { return }
+            let newIntercept = (sy - newSlope * sx) / sw
+
+            var resid = [Double](repeating: 0, count: beatK.count)
+            for i in 0..<beatK.count {
+                resid[i] = beatT[i] - (newIntercept + newSlope * Double(beatK[i]))
+            }
+            let scale = 1.4826 * medianAbsDeviation(resid, keep: keep) + 1e-9
+            for i in 0..<beatK.count {
+                keep[i] = beatScore[i] >= Self.minScore && abs(resid[i]) < 3 * scale
+            }
+            slope = newSlope
+            intercept = newIntercept
+            haveFit = true
+        }
+        beatKeep = keep
+    }
+
+    private func medianAbsDeviation(_ v: [Double], keep: [Bool]) -> Double {
+        var vals: [Double] = []
+        vals.reserveCapacity(v.count)
+        for i in 0..<v.count where keep[i] { vals.append(v[i]) }
+        guard !vals.isEmpty else { return 0 }
+        vals.sort()
+        let med = vals[vals.count / 2]
+        var dev = vals.map { abs($0 - med) }
+        dev.sort()
+        return dev[dev.count / 2]
+    }
+
+    /// Average every tracked beat at the fitted period for a clean template, and
+    /// read the tic-to-toc spacing (beat error) off the same folded waveform.
+    private func refoldTemplate() -> Bool {
+        guard haveFit, slopeIsPlausible else { return false }
+        let L = Int(slope * envRate)
+        guard L > templateLength * 2 else { return false }
+        var acc = [Double](repeating: 0, count: L)
+        var folded = 0
+        for i in 0..<beatK.count where beatKeep[i] {
+            let start = Int(((intercept + slope * Double(beatK[i])) * envRate).rounded())
+            guard start >= 0, start + L < env.count else { continue }
+            for j in 0..<L { acc[j] += env[start + j] }
+            folded += 1
+        }
+        guard folded >= 30 else { return false }
+        var wf = acc.map { $0 / Double(folded) }
+        var sorted = wf
+        sorted.sort()
+        let baseline = sorted[sorted.count / 2]
+        for i in 0..<L { wf[i] -= baseline }
+
+        var peak = 0
+        for i in 0..<L where wf[i] > wf[peak] { peak = i }
+        var tpl = [Double](repeating: 0, count: templateLength)
+        for i in 0..<templateLength {
+            tpl[i] = wf[((peak - templatePre + i) % L + L) % L]
+        }
+        template = tpl
+        beatErrorMs = Self.beatError(wf, sampleRate: envRate)
+        // The refold moves where the template's origin sits inside the beat, so
+        // re-anchor the fit to keep predictions centred.
+        intercept += Double(peak - templatePre) / envRate
+        return true
+    }
+
+    /// Tic-to-toc spacing against half a cycle, from the folded waveform. Found
+    /// by circular autocorrelation rather than by picking a second peak: an
+    /// escapement makes several sounds per beat, so the runner-up peak is
+    /// usually the tick's own drop, not the toc.
+    static func beatError(_ wf: [Double], sampleRate: Double) -> Double? {
+        let n = wf.count
+        guard n > 16 else { return nil }
+        var mean = 0.0
+        for v in wf { mean += v }
+        mean /= Double(n)
+        let w = wf.map { $0 - mean }
+        let half = n / 2
+        let span = max(4, Int(0.02 * sampleRate))
+        let lo = max(1, half - span), hi = min(n - 1, half + span)
+        guard hi > lo + 2 else { return nil }
+        var ac = [Double](repeating: 0, count: hi - lo + 1)
+        for (idx, lag) in (lo...hi).enumerated() {
+            var s = 0.0
+            for i in 0..<n { s += w[i] * w[(i + lag) % n] }
+            ac[idx] = s
+        }
+        var best = 0
+        for i in 0..<ac.count where ac[i] > ac[best] { best = i }
+        var frac = 0.0
+        if best > 0, best < ac.count - 1 {
+            let y0 = ac[best - 1], y1 = ac[best], y2 = ac[best + 1]
+            let den = y0 - 2 * y1 + y2
+            if den != 0 { frac = 0.5 * (y0 - y2) / den }
+        }
+        let ticToToc = Double(lo + best) + frac
+        return abs(ticToToc - Double(half)) / sampleRate * 1000
+    }
+
+    // MARK: Quality
+
+    var acceptedCount: Int {
+        var c = 0
+        for k in beatKeep where k { c += 1 }
+        return c
+    }
+
+    /// Per-beat timing scatter (ms), match rate and median match score.
+    func quality() -> (jitterMs: Double, detection: Double, score: Double) {
+        guard !beatK.isEmpty else { return (0, 0, 0) }
+        var resid: [Double] = [], scores: [Double] = []
+        for i in 0..<beatK.count where beatKeep[i] {
+            resid.append(beatT[i] - (intercept + slope * Double(beatK[i])))
+            scores.append(beatScore[i])
+        }
+        var jitter = 0.0
+        if resid.count > 2 {
+            var m = 0.0
+            for v in resid { m += v }
+            m /= Double(resid.count)
+            var s = 0.0
+            for v in resid { s += (v - m) * (v - m) }
+            jitter = (s / Double(resid.count - 1)).squareRoot() * 1000
+        }
+        scores.sort()
+        let med = scores.isEmpty ? 0 : scores[scores.count / 2]
+        return (jitter, Double(resid.count) / Double(beatK.count), med)
+    }
+
+    var rateSecondsPerDay: Double? {
+        guard haveFit, slope > 0, acceptedCount >= 20 else { return nil }
+        return (nominalCycle / slope - 1) * 86_400
+    }
+
+    /// Rates fitted independently in blocks of `tau` seconds of beats.
+    func blockRates(tau: Double, step: Double) -> [Double] {
+        var rates: [Double] = []
+        guard !beatT.isEmpty else { return rates }
+        var t0 = beatT[0]
+        let last = beatT[beatT.count - 1]
+        while t0 <= last - tau {
+            var sw = 0.0, sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0
+            for i in 0..<beatK.count where beatKeep[i] && beatT[i] >= t0 && beatT[i] < t0 + tau {
+                let x = Double(beatK[i]), y = beatT[i]
+                sw += 1; sx += x; sy += y; sxx += x * x; sxy += x * y
+            }
+            if sw >= 8 {
+                let den = sxx - sx * sx / sw
+                if den > 0 {
+                    let s = (sxy - sx * sy / sw) / den
+                    if s > 0 { rates.append((nominalCycle / s - 1) * 86_400) }
+                }
+            }
+            t0 += step
+        }
+        return rates
+    }
+
+    /// Textbook SE of the fitted slope in s/day. Far too optimistic on its own —
+    /// beat timings are correlated — but it scales correctly with time, so it
+    /// serves as a calibrated floor under the block-scatter estimate.
+    func naiveSE() -> Double? {
+        var ks: [Double] = [], resid: [Double] = []
+        for i in 0..<beatK.count where beatKeep[i] {
+            ks.append(Double(beatK[i]))
+            resid.append(beatT[i] - (intercept + slope * Double(beatK[i])))
+        }
+        guard ks.count > 8 else { return nil }
+        var km = 0.0, rm = 0.0
+        for v in ks { km += v }
+        km /= Double(ks.count)
+        for v in resid { rm += v }
+        rm /= Double(resid.count)
+        var kvar = 0.0, rvar = 0.0
+        for v in ks { kvar += (v - km) * (v - km) }
+        for v in resid { rvar += (v - rm) * (v - rm) }
+        kvar = (kvar / Double(ks.count)).squareRoot()
+        rvar = (rvar / Double(resid.count - 1)).squareRoot()
+        guard kvar > 0 else { return nil }
+        let seSlope = rvar / (Double(ks.count).squareRoot() * kvar)
+        return 86_400 * seSlope / nominalCycle
+    }
+}
+
+// MARK: - Timegrapher
+
 /// Acoustic timegrapher.
 ///
-/// The escapement tick's discriminating energy sits high (~5–15 kHz); lower
-/// frequencies are dominated by handling/room rumble. So: band-pass 5–15 kHz →
-/// square (energy) → decimate to an ~8 kHz envelope. The beat rate is found by a
-/// sharp DFT over candidate rates, and the rate deviation by lock-in
-/// phase-tracking at the nominal beat frequency — which integrates over every
-/// beat and stays robust even when individual ticks are buried in noise.
+/// The rate comes from timing *individual beats* against the phone's audio clock,
+/// the way a real timegrapher does — not from the phase of the beat-frequency
+/// line. A lock-in phase slope needs a minute or more before it stops wandering
+/// by tens of s/day, which is why an early reading used to collapse toward the
+/// truth rather than converge on it; timing beats gives a reading good to about
+/// ±1 s/day within fifteen seconds.
+///
+/// The published ± is the scatter of independent sub-window rates, floored by a
+/// calibrated multiple of the fit's own standard error. The fit SE alone is
+/// 10–20× too optimistic because beat timings are correlated: both the contact
+/// and the watch wander.
 final class Timegrapher {
 
     static let standardRates: [(bph: Int, bps: Double)] = [
@@ -81,39 +560,44 @@ final class Timegrapher {
 
     static let standardBPH = standardRates.map { $0.bph }
 
-    /// Candidate band-pass windows scanned per measurement. The escapement's
-    /// discriminating tick energy lands anywhere from ~5 kHz to ~20 kHz
-    /// depending on the movement/case, so we pick the band with the strongest
-    /// beat line rather than assuming one.
+    /// Candidate listening bands. Escapement energy lands anywhere from ~4 kHz
+    /// to ~20 kHz depending on the movement and how the case couples to the
+    /// phone, so we pick rather than assume. Nothing below 4 kHz: down there the
+    /// tick is buried in handling and room rumble and every beat times badly.
     static let candidateBands: [(lo: Double, hi: Double)] = [
-        (2_000, 6_000), (4_000, 9_000), (5_000, 11_000), (7_000, 13_000),
-        (9_000, 15_000), (11_000, 18_000), (13_000, 21_000),
+        (4_000, 9_000), (5_000, 11_000), (7_000, 13_000), (9_000, 15_000),
+        (11_000, 18_000), (13_000, 21_000), (15_000, 23_000), (6_000, 20_000),
     ]
 
-    // Envelope rate — the beat and its harmonics live below ~40 Hz, so ~1 kHz is
-    // plenty and keeps the DFT/lock-in cheap on the live path.
-    static let envTargetRate = 1_000.0
+    /// Envelope rate for beat tracking. 4 kHz = 0.25 ms per sample; sub-sample
+    /// interpolation of the correlation peak takes timing well below that.
+    static let envRate = 4_000.0
+
+    /// The ± at which we call the reading done. A mechanical watch is specified
+    /// in whole s/day, so resolving past ±2 tells the owner nothing more.
+    static let targetPrecision = 2.0
+
+    /// Seconds of audio gathered before the band probe runs.
+    private static let probeSeconds = 4.0
+    private static let blockSeconds = 5.0
 
     // Config
     private var sampleRate = 48_000.0
     private var manualBPH: Int?
-    private let maxSeconds = 180.0
+    private let maxSeconds = 300.0
 
-    // Raw mono audio, guarded by lock (filtering happens in analyze()).
+    /// Raw mono audio not yet handed to the tracker, guarded by lock. It is
+    /// drained as it is consumed — only the band probe ever needs to look back,
+    /// so holding a whole session here would cost tens of megabytes for nothing.
     private var raw: [Float] = []
+    private var ingested = 0
     private let lock = NSLock()
 
-    // Incremental state: the band is chosen once, then the chosen-band envelope
-    // is extended with only the new audio each pass (so analyze() stays cheap as
-    // the recording grows, instead of re-filtering everything).
-    private var bandChosen = false
-    private var chLo = 5_000.0, chHi = 15_000.0, chBPH = 28_800
-    private var chSep = 1.0, chProm = 0.0
-    private var incHP = Biquad(), incLP = Biquad()
-    private var incAcc = 0.0, incCount = 0, incDecim = 48
-    private var incEnvRate = 1_000.0
-    private var incEnv: [Double] = []
-    private var processedRaw = 0
+    private var tracker: BeatTracker?
+    private var probed = false
+    /// Consecutive analysis passes with unusable tracking, for lock recovery.
+    private var badPasses = 0
+    private var progressHighWater = 0.0
 
     // MARK: Setup
 
@@ -121,171 +605,202 @@ final class Timegrapher {
         lock.lock()
         self.sampleRate = sampleRate
         raw.removeAll(keepingCapacity: true)
-        raw.reserveCapacity(Int(sampleRate * 60))
-        bandChosen = false
-        incEnv.removeAll(keepingCapacity: true)
-        incAcc = 0; incCount = 0; processedRaw = 0
+        raw.reserveCapacity(Int(sampleRate * Timegrapher.probeSeconds * 2))
+        ingested = 0
         lock.unlock()
+
+        tracker = nil
+        probed = false
+        badPasses = 0
+        progressHighWater = 0
     }
 
-    func setManualBPH(_ bph: Int?) {
-        lock.lock(); manualBPH = bph; lock.unlock()
+    func setManualBPH(_ newValue: Int?) {
+        // A different beat rate invalidates everything downstream of the probe,
+        // and the audio it ran on has already been drained — so start over.
+        lock.lock()
+        manualBPH = newValue
+        raw.removeAll(keepingCapacity: true)
+        ingested = 0
+        lock.unlock()
+
+        tracker = nil
+        probed = false
+        badPasses = 0
+        progressHighWater = 0
     }
 
     // MARK: Ingest (audio thread) — just store raw; filtering is deferred.
 
     func process(_ samples: UnsafePointer<Float>, count: Int) {
         lock.lock()
-        if Double(raw.count) < sampleRate * maxSeconds {
+        if Double(ingested) < sampleRate * maxSeconds {
             raw.append(contentsOf: UnsafeBufferPointer(start: samples, count: count))
+            ingested += count
         }
         lock.unlock()
-    }
-
-    /// Band-pass (HP→LP) → square → decimate to ~8 kHz, returning a mean-removed
-    /// energy envelope and its rate. `count` limits how much of `src` to use.
-    private func envelope(_ src: [Float], count: Int, fs: Double, lo: Double, hi: Double) -> (env: [Double], er: Double) {
-        var hp = Biquad.highpass(fc: lo, fs: fs)
-        var lp = Biquad.lowpass(fc: min(hi, fs / 2 - 500), fs: fs)
-        let decim = max(1, Int((fs / Timegrapher.envTargetRate).rounded()))
-        let er = fs / Double(decim)
-        var env = [Double](); env.reserveCapacity(count / decim + 1)
-        var acc = 0.0, c = 0
-        for i in 0..<count {
-            let y = lp.process(hp.process(Double(src[i])))
-            acc += y * y; c += 1
-            if c >= decim { env.append(acc / Double(decim)); acc = 0; c = 0 }
-        }
-        var m = 0.0
-        for v in env { m += v }
-        if !env.isEmpty { m /= Double(env.count); for i in 0..<env.count { env[i] -= m } }
-        return (env, er)
-    }
-
-    /// Pick the (band, bph) with the strongest beat line over the first ~12 s.
-    private func selectBand(_ src: [Float], fs: Double, manual: Int?)
-        -> (lo: Double, hi: Double, bph: Int, separation: Double, prominence: Double) {
-        let scanCount = min(src.count, Int(12 * fs))
-        let cands = manual.map { [$0] } ?? Timegrapher.standardBPH
-        var best = (lo: 5_000.0, hi: 15_000.0, bph: manual ?? 28_800, separation: 1.0, prominence: 0.0)
-        var bestProm = -1.0
-        for band in Timegrapher.candidateBands {
-            let (env, er) = envelope(src, count: scanCount, fs: fs, lo: band.lo, hi: band.hi)
-            if env.count < Int(er) { continue }
-            var mags = cands.map { (bph: $0, mag: dftMag(env, fs: er, f: Double($0) / 3600, window: env.count)) }
-            mags.sort { $0.mag > $1.mag }
-            let bph = mags[0].bph
-            let sep = mags.count > 1 ? mags[0].mag / max(mags[1].mag, 1e-12) : 999
-            let f0 = Double(bph) / 3600
-            let noiseF = [f0 * 0.6, f0 * 0.75, f0 * 1.2, f0 * 1.35, f0 * 1.6]
-            var nb = 0.0
-            for nf in noiseF { nb += dftMag(env, fs: er, f: nf, window: env.count) }
-            nb /= Double(noiseF.count)
-            let prom = mags[0].mag / (nb + 1e-12)
-            if prom > bestProm { bestProm = prom; best = (band.lo, band.hi, bph, sep, prom) }
-        }
-        return best
     }
 
     // MARK: Analyze (background queue)
 
-    func analyze() -> TimegrapherResult? {
+    func analyze() -> TimegrapherResult {
         lock.lock()
-        let n = raw.count
         let fs = sampleRate
         let manual = manualBPH
-        let elapsed = Double(n) / fs
-        // Snapshot only what's needed: everything (once) to choose the band, or
-        // just the new tail thereafter — avoids copying the whole buffer.
-        var fullSrc: [Float] = []
+        let elapsed = Double(ingested) / fs
+        let probeCount = Int(Timegrapher.probeSeconds * fs)
+        var probeSrc: [Float] = []
         var tail: [Float] = []
-        if !bandChosen {
-            if elapsed >= 5 { fullSrc = raw }
-        } else if n > processedRaw {
-            tail = Array(raw[processedRaw..<n])
+        if !probed {
+            // The probe needs to see the opening seconds, so nothing is drained
+            // until it has run.
+            if raw.count >= probeCount {
+                probeSrc = Array(raw[0..<probeCount])
+                raw.removeFirst(probeCount)
+            }
+        } else {
+            tail = raw
+            raw.removeAll(keepingCapacity: true)
         }
         lock.unlock()
 
-        guard elapsed > 3.0 else { return nil }
+        guard elapsed >= 1.5 else { return idle(.listening, elapsed) }
 
-        if !bandChosen {
-            guard elapsed >= 5, !fullSrc.isEmpty else { return nil }
-            let sel = selectBand(fullSrc, fs: fs, manual: manual)
-            chLo = sel.lo; chHi = sel.hi; chBPH = sel.bph
-            chSep = sel.separation; chProm = sel.prominence
-            incDecim = max(1, Int((fs / Timegrapher.envTargetRate).rounded()))
-            incEnvRate = fs / Double(incDecim)
-            incHP = .highpass(fc: chLo, fs: fs)
-            incLP = .lowpass(fc: min(chHi, fs / 2 - 500), fs: fs)
-            incAcc = 0; incCount = 0; incEnv.removeAll(keepingCapacity: true)
-            extendEnv(fullSrc, from: 0, to: fullSrc.count)
-            processedRaw = fullSrc.count
-            bandChosen = true
-        } else if !tail.isEmpty {
-            extendEnv(tail, from: 0, to: tail.count)
-            processedRaw = n
+        // 1. Choose the band and beat rate, once, by trying the best candidates
+        //    for real rather than trusting the spectrum alone.
+        if !probed {
+            guard !probeSrc.isEmpty else {
+                // Still refilling after a failed probe — say so once it has been
+                // long enough that the user deserves to know nothing is landing.
+                return idle(elapsed > 14 ? .noSignal : .listening, elapsed)
+            }
+            tracker = probeBands(probeSrc, fs: fs, manual: manual)
+            guard tracker != nil else {
+                // Nothing to lock onto in that window. Leave the probe armed so
+                // it runs again on the next few seconds of audio — the user may
+                // simply not have the watch against the mic yet.
+                return idle(elapsed > 14 ? .noSignal : .tuning, elapsed)
+            }
+            probed = true
+            return idle(.tuning, elapsed)
         }
 
-        let f0 = Double(chBPH) / 3600.0
-        guard incEnv.count > Int(incEnvRate * 1.5),
-              let li = lockIn(incEnv, fs: incEnvRate, f0: f0) else { return nil }
+        guard let tracker else {
+            return idle(elapsed > 14 ? .noSignal : .tuning, elapsed)
+        }
+        if !tail.isEmpty {
+            tracker.extend(tail)
+        }
+        guard tracker.step() else {
+            return idle(elapsed > 14 ? .noSignal : .tuning, elapsed)
+        }
 
-        let rate = 86_400.0 * li.slope / (2 * Double.pi * f0)
-        // Honest uncertainty: the phase wanders with a multi-second correlation
-        // time, so a residual-based SE is wildly overconfident. Instead take the
-        // scatter of independent sub-window rates.
-        let rateUnc = li.rateUncPerDay
+        // If the lock stays bad — the watch slipped, or the probe caught a
+        // false beat before the watch was even in place — throw it away and
+        // re-probe on fresh audio rather than grinding on unusable beats.
+        // Both must be bad: a false lock on room noise mistimes *and* loses
+        // beats. A merely noisy watch still detects nearly every beat, and
+        // restarting would throw away a usable — if coarse — measurement.
+        let q = tracker.quality()
+        if q.jitterMs > 1.0 && q.detection < 0.6 {
+            badPasses += 1
+        } else {
+            badPasses = 0
+        }
+        if badPasses >= 16 {          // ~8 s at the 0.5 s analysis cadence
+            self.tracker = nil
+            probed = false
+            badPasses = 0
+            return idle(.tuning, elapsed)
+        }
 
-        // --- Signal quality (0…1): is the tick clearly heard? ---
-        // Whether the *reading* is trustworthy also depends on how settled it is
-        // over time, which the view model judges from the live reading history —
-        // the sub-window ± is too pessimistic to gate on directly (it counts
-        // short-term wander that averages out).
-        let snrTerm = max(0.0, min(1.0, (li.ampSNR - 1.0) / 4.0))
-        let promTerm = max(0.0, min(1.0, (chProm - 3.0) / 12.0))
-        let confidence = snrTerm * promTerm
-        let isCalibrated = elapsed > 8 && li.ampSNR > 1.8 && chProm > 5
-
-        return TimegrapherResult(
-            beatsPerHour: chBPH,
-            beatsPerSecond: f0,
-            rateSecondsPerDay: rate,
-            rateUncertainty: rateUnc,
-            amplitudeSNR: li.ampSNR,
-            lineSeparation: chProm,
-            confidence: confidence,
-            elapsedSeconds: elapsed,
-            isCalibrated: isCalibrated,
-            bandLowHz: chLo,
-            bandHighHz: chHi,
-            trace: li.trace
-        )
+        return buildResult(tracker, elapsed: elapsed)
     }
 
-    /// Extend the chosen-band envelope with src[from..<to], carrying filter and
-    /// decimation state so the envelope is continuous across calls.
-    private func extendEnv(_ src: [Float], from: Int, to: Int) {
-        var hp = incHP, lp = incLP
-        var acc = incAcc, c = incCount
-        let d = incDecim
-        for i in from..<to {
+    // MARK: Band + beat-rate selection
+
+    /// Shortlist bands by how sharply the beat line stands above its neighbours,
+    /// then run the top few for real and keep whichever times beats most
+    /// precisely. Spectral strength alone picks the *loudest* band, which is not
+    /// always the *sharpest* one: a ringing band can carry a strong beat line
+    /// while smearing every individual tick.
+    private func probeBands(_ src: [Float], fs: Double, manual: Int?) -> BeatTracker? {
+        let scanCount = min(src.count, Int(Timegrapher.probeSeconds * fs))
+        let candidates = manual.map { [$0] } ?? Timegrapher.standardBPH
+
+        var shortlist: [(prom: Double, lo: Double, hi: Double, bph: Int)] = []
+        for band in Timegrapher.candidateBands {
+            let (e, er) = coarseEnvelope(src, count: scanCount, fs: fs,
+                                         lo: band.lo, hi: band.hi)
+            guard e.count > Int(er) else { continue }
+            var best: (prom: Double, bph: Int)?
+            for candidate in candidates {
+                let f0 = Double(candidate) / 3600
+                let mag = dftMag(e, fs: er, f: f0)
+                var noise = 0.0
+                for k in [0.6, 0.75, 1.2, 1.35, 1.6] { noise += dftMag(e, fs: er, f: f0 * k) }
+                noise /= 5
+                let prom = mag / (noise + 1e-12)
+                if best == nil || prom > best!.prom { best = (prom, candidate) }
+            }
+            if let best { shortlist.append((best.prom, band.lo, band.hi, best.bph)) }
+        }
+        shortlist.sort { $0.prom > $1.prom }
+        guard !shortlist.isEmpty else { return nil }
+
+        let probe = Array(src[0..<scanCount])
+        var winner: BeatTracker?
+        var winnerKey = (Double.infinity, 0.0)
+        for entry in shortlist.prefix(3) {
+            let t = BeatTracker(lo: entry.lo, hi: entry.hi, bph: entry.bph,
+                                sampleRate: fs, targetEnvRate: Timegrapher.envRate)
+            t.extend(probe)
+            guard t.step(), t.acceptedCount >= 12 else { continue }
+            let q = t.quality()
+            // A real escapement times to a fraction of a millisecond. Anything
+            // looser is room noise dressed up as a beat.
+            guard q.detection >= 0.85, q.jitterMs < 1.0, q.score >= 0.6 else { continue }
+            // Rank by timing jitter — a smeared tick shows up here and nowhere
+            // else — then by how well the template matches.
+            let key = (q.jitterMs, -q.score)
+            if key < winnerKey { winnerKey = key; winner = t }
+        }
+        // No fallback to "the strongest spectral line": on a few seconds of room
+        // noise that line is noise, and locking onto it is worse than waiting.
+        // Returning nil leaves the probe armed to try the next few seconds —
+        // which is what the user needs while they're still positioning the watch.
+        return winner
+    }
+
+    /// A cheap 1 kHz energy envelope, only used to identify band and beat rate.
+    private func coarseEnvelope(_ src: [Float], count: Int, fs: Double,
+                                lo: Double, hi: Double) -> ([Double], Double) {
+        var hp = Biquad.highpass(fc: lo, fs: fs)
+        var lp = Biquad.lowpass(fc: min(hi, fs / 2 - 500), fs: fs)
+        let decim = max(1, Int((fs / 1_000.0).rounded()))
+        let er = fs / Double(decim)
+        var e = [Double]()
+        e.reserveCapacity(count / decim + 1)
+        var acc = 0.0, c = 0
+        for i in 0..<count {
             let y = lp.process(hp.process(Double(src[i])))
             acc += y * y; c += 1
-            if c >= d { incEnv.append(acc / Double(d)); acc = 0; c = 0 }
+            if c >= decim { e.append(acc / Double(decim)); acc = 0; c = 0 }
         }
-        incHP = hp; incLP = lp; incAcc = acc; incCount = c
+        var m = 0.0
+        for v in e { m += v }
+        if !e.isEmpty {
+            m /= Double(e.count)
+            for i in 0..<e.count { e[i] -= m }
+        }
+        return (e, er)
     }
 
-    // MARK: - DSP helpers
-
-    /// Magnitude of the envelope's DFT bin at frequency f (over the first
-    /// `window` samples). Sharp frequency resolution cleanly separates adjacent
-    /// candidate rates (e.g. 7 vs 8 Hz).
-    private func dftMag(_ e: [Double], fs: Double, f: Double, window: Int) -> Double {
-        let n = min(e.count, window)
+    /// Magnitude of the envelope's DFT bin at frequency f.
+    private func dftMag(_ e: [Double], fs: Double, f: Double) -> Double {
+        let n = e.count
         let w = 2 * Double.pi * f / fs
         var re = 0.0, im = 0.0
-        // Incremental phasor to avoid a cos/sin per sample.
         var cr = 1.0, ci = 0.0
         let dc = cos(w), ds = sin(w)
         for i in 0..<n {
@@ -294,7 +809,7 @@ final class Timegrapher {
             let ncr = cr * dc - ci * ds
             ci = cr * ds + ci * dc
             cr = ncr
-            if i & 8191 == 0 {   // renormalize the phasor periodically
+            if i & 8191 == 0 {
                 let m = (cr * cr + ci * ci).squareRoot()
                 if m > 0 { cr /= m; ci /= m }
             }
@@ -302,112 +817,121 @@ final class Timegrapher {
         return (re * re + im * im).squareRoot() / Double(n)
     }
 
-    private struct LockIn {
-        let slope: Double          // rad/sec of phase drift
-        let rateUncPerDay: Double  // honest ± from sub-window scatter (s/day)
-        let ampSNR: Double
-        let trace: [PhasePoint]
+    // MARK: Result assembly
+
+    private func idle(_ stage: MeasurementStage, _ elapsed: Double) -> TimegrapherResult {
+        let p = min(0.25, elapsed / Timegrapher.probeSeconds * 0.25)
+        progressHighWater = max(progressHighWater, p)
+        return TimegrapherResult(
+            stage: stage, beatsPerHour: tracker?.bph ?? 0, rateSecondsPerDay: nil,
+            uncertainty: nil, beatErrorMs: nil, jitterMs: 0, detectionRate: 0,
+            matchScore: 0, beatsTracked: 0, elapsedSeconds: elapsed,
+            bandLowHz: tracker?.lo ?? 0, bandHighHz: tracker?.hi ?? 0,
+            progress: progressHighWater, secondsRemaining: nil, trace: [])
     }
 
-    /// Complex-demodulate at f0, low-pass to the slow amplitude/phase, then fit
-    /// the unwrapped phase vs time. Slope = frequency offset → rate.
-    private func lockIn(_ e: [Double], fs: Double, f0: Double) -> LockIn? {
-        let n = e.count
-        let w = 2 * Double.pi * f0 / fs
-        var zr = [Double](repeating: 0, count: n)
-        var zi = [Double](repeating: 0, count: n)
-        var cr = 1.0, ci = 0.0
-        let dc = cos(w), ds = sin(w)
-        for i in 0..<n {
-            zr[i] = e[i] * cr          // e * cos
-            zi[i] = -e[i] * ci         // e * (-sin)
-            let ncr = cr * dc - ci * ds
-            ci = cr * ds + ci * dc
-            cr = ncr
-            if i & 8191 == 0 {
-                let m = (cr * cr + ci * ci).squareRoot()
-                if m > 0 { cr /= m; ci /= m }
+    private func buildResult(_ t: BeatTracker, elapsed: Double) -> TimegrapherResult {
+        let q = t.quality()
+        var rate = t.rateSecondsPerDay
+
+        // Published ±: the scatter of independent sub-window rates, measured at
+        // two block lengths so an unlucky chopping of the record can't make a
+        // drifting reading look settled, floored by 10× the fit's own SE (the
+        // factor that makes it honest, calibrated against recorded sessions).
+        var unc: Double?
+        if rate != nil {
+            // SEM at several block lengths. Short blocks put a number on screen
+            // sooner, but they overstate the ± for good — each short block's own
+            // slope is noisy — so they're only used until longer blocks exist.
+            var sems: [Double] = []
+            for (tau, step) in [(Timegrapher.blockSeconds / 2, Timegrapher.blockSeconds / 4),
+                                (Timegrapher.blockSeconds, Timegrapher.blockSeconds / 2),
+                                (Timegrapher.blockSeconds * 2, Timegrapher.blockSeconds)] {
+                let blocks = t.blockRates(tau: tau, step: step)
+                guard blocks.count >= 2 else { continue }
+                var m = 0.0
+                for v in blocks { m += v }
+                m /= Double(blocks.count)
+                var s = 0.0
+                for v in blocks { s += (v - m) * (v - m) }
+                // Overlapping blocks are correlated; count only the independent ones.
+                let independent = max(2.0, Double(blocks.count) * step / tau)
+                sems.append((s / Double(blocks.count - 1)).squareRoot() / independent.squareRoot())
+            }
+            // Worst case over the two longest block lengths we can form.
+            let sd = sems.isEmpty ? nil : 2 * sems.suffix(2).max()!
+            if let sd {
+                var value = sd
+                if let naive = t.naiveSE() { value = max(value, 10 * naive) }
+                // The phone's own crystal is only good to about half a second a day.
+                unc = max(0.5, value)
             }
         }
 
-        // Low-pass both quadratures to isolate the slowly varying amplitude.
-        var lpR = Biquad.lowpass(fc: 1.5, fs: fs)
-        var lpI = Biquad.lowpass(fc: 1.5, fs: fs)
-        for i in 0..<n { zr[i] = lpR.process(zr[i]) }
-        for i in 0..<n { zi[i] = lpI.process(zi[i]) }
+        // A wildly wide ± means we aren't really locked; show nothing rather
+        // than a number with a meaningless bound attached to it.
+        if let u = unc, u > 25 { rate = nil; unc = nil }
 
-        // Trim 10% at each end (filter transients).
-        let a = Int(0.1 * Double(n)), b = Int(0.9 * Double(n))
-        guard b - a > Int(fs) else { return nil }
-
-        // Unwrap phase and accumulate stats for an amplitude-weighted fit of
-        // phase vs time — down-weighting low-amplitude stretches (momentary
-        // coupling dropouts) where the phase estimate is unreliable.
-        var prev = atan2(zi[a], zr[a])
-        var unwrapped = prev
-        var sumAmp = 0.0, sumAmp2 = 0.0, cnt = 0.0
-        var sw = 0.0, swx = 0.0, swy = 0.0, swxx = 0.0, swxy = 0.0
-        var phases: [Double] = []
-        phases.reserveCapacity(b - a)
-        for i in a..<b {
-            let ph = atan2(zi[i], zr[i])
-            var d = ph - prev
-            while d > Double.pi { d -= 2 * Double.pi }
-            while d < -Double.pi { d += 2 * Double.pi }
-            unwrapped += d
-            prev = ph
-            phases.append(unwrapped)
-
-            let t = Double(i) / fs
-            let amp = (zr[i] * zr[i] + zi[i] * zi[i]).squareRoot()
-            sw += amp; swx += amp * t; swy += amp * unwrapped
-            swxx += amp * t * t; swxy += amp * t * unwrapped
-            sumAmp += amp; sumAmp2 += amp * amp; cnt += 1
-        }
-        let sxxCentered = swxx - swx * swx / sw
-        guard sxxCentered > 0 else { return nil }
-        let slope = (swxy - swx * swy / sw) / sxxCentered
-
-        let ampMean = sumAmp / cnt
-        let ampVar = max(0, sumAmp2 / cnt - ampMean * ampMean)
-        let ampSNR = ampMean / (ampVar.squareRoot() + 1e-12)
-
-        // Uncertainty from the scatter of independent ~8 s sub-window rates.
-        let toRate = 86_400.0 / (2 * Double.pi * f0)
-        let chunk = Int(8 * fs)
-        var chunkRates: [Double] = []
-        var s0 = 0
-        while s0 + chunk <= phases.count {
-            var cx = 0.0, cy = 0.0, cxx = 0.0, cxy = 0.0, cc = 0.0
-            for k in s0..<(s0 + chunk) {
-                let t = Double(a + k) / fs
-                cx += t; cy += phases[k]; cxx += t * t; cxy += t * phases[k]; cc += 1
-            }
-            let den = cxx - cx * cx / cc
-            if den > 0 { chunkRates.append((cxy - cx * cy / cc) / den * toRate) }
-            s0 += chunk
-        }
-        let rateUncPerDay: Double
-        if chunkRates.count >= 2 {
-            let m = chunkRates.reduce(0, +) / Double(chunkRates.count)
-            let v = chunkRates.reduce(0) { $0 + ($1 - m) * ($1 - m) } / Double(chunkRates.count - 1)
-            rateUncPerDay = v.squareRoot() / Double(chunkRates.count).squareRoot()
+        // Stage.
+        var stage: MeasurementStage
+        if rate == nil || unc == nil {
+            stage = .locking
+        } else if q.detection < 0.85 || q.jitterMs > 0.5 || q.score < 0.6 {
+            stage = .unstable
+        } else if unc! <= Timegrapher.targetPrecision {
+            stage = .done
         } else {
-            rateUncPerDay = 10.0   // too short to trust
+            stage = .measuring
+        }
+        if elapsed > 20, t.acceptedCount < 10 { stage = .noSignal }
+
+        // Progress and time remaining. The ± falls as 1/√time, so what's left is
+        // (current/target)² − 1 of the time spent so far.
+        var remaining: Double?
+        var progress: Double
+        if let u = unc {
+            let ratio = Timegrapher.targetPrecision / u
+            progress = 0.25 + 0.75 * min(1.0, ratio * ratio)
+            if u > Timegrapher.targetPrecision {
+                let need = (u * u) / (Timegrapher.targetPrecision * Timegrapher.targetPrecision)
+                let estimate = elapsed * (need - 1)
+                // Only worth showing when it's a wait rather than a verdict.
+                remaining = estimate <= 180 ? max(1, estimate) : nil
+            }
+        } else {
+            progress = min(0.25, elapsed / Timegrapher.probeSeconds * 0.25)
+        }
+        progressHighWater = max(progressHighWater, progress)
+
+        // Paper tape: cumulative offset against a perfect clock.
+        var trace: [BeatPoint] = []
+        if !t.beatK.isEmpty {
+            let step = max(1, t.beatK.count / 240)
+            var i = 0
+            while i < t.beatK.count {
+                let offset = (t.beatT[i] - t.intercept
+                              - t.nominalCycle * Double(t.beatK[i])) * 1000
+                trace.append(BeatPoint(time: t.beatT[i], offsetMs: offset,
+                                       accepted: t.beatKeep[i]))
+                i += step
+            }
         }
 
-        // Build a downsampled drift trace (cumulative offset in ms).
-        var trace: [PhasePoint] = []
-        let stride = max(1, phases.count / 120)
-        let toMs = 1000.0 / (2 * Double.pi * f0)
-        let ph0 = phases.first ?? 0
-        var k = 0
-        while k < phases.count {
-            let i = a + k
-            trace.append(PhasePoint(time: Double(i) / fs, offsetMs: (phases[k] - ph0) * toMs))
-            k += stride
-        }
-
-        return LockIn(slope: slope, rateUncPerDay: rateUncPerDay, ampSNR: ampSNR, trace: trace)
+        return TimegrapherResult(
+            stage: stage,
+            beatsPerHour: t.bph,
+            rateSecondsPerDay: rate,
+            uncertainty: unc,
+            beatErrorMs: t.beatErrorMs,
+            jitterMs: q.jitterMs,
+            detectionRate: q.detection,
+            matchScore: q.score,
+            beatsTracked: t.acceptedCount,
+            elapsedSeconds: elapsed,
+            bandLowHz: t.lo,
+            bandHighHz: t.hi,
+            progress: progressHighWater,
+            secondsRemaining: remaining,
+            trace: trace)
     }
 }

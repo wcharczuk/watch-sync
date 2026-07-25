@@ -17,3 +17,6 @@ ml/diagnostics_*/
 
 # Claude local settings
 .claude/settings.local.json
+
+# Pulled off the device before wiping its Documents; not worth committing
+ml/recordings-archive/
