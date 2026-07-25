@@ -1,0 +1,19 @@
+.DS_Store
+
+# Python envs / build
+ml/venv/
+ml/venv-convert/
+ml/__pycache__/
+**/__pycache__/
+
+# Data, checkpoints, and generated artifacts
+ml/data/
+ml/checkpoints/
+ml/cache/
+ml/videos/
+ml/diagnostics/
+ml/diagnostics_*/
+*.npy
+
+# Claude local settings
+.claude/settings.local.json

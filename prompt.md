@@ -1,0 +1,1 @@
+create an ios application that has a single view; an analog clock with an hour hand, a minute hand, and a second hand, with the ability to to move a red hash mark around the dial by dragging up or down. below the clock should be the number of seconds (accurate to the millisecond) until the second hand reaches the hash mark.
