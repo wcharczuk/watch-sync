@@ -1,0 +1,20 @@
+// Diagnostic raw-audio recording — OFF unless a developer opts in locally.
+//
+// Empty here, and this file is the only committed place the setting is defined,
+// so a fresh clone cannot record. To turn it on for a testing session, create
+// Config/Local.xcconfig (gitignored — it cannot be committed by accident):
+//
+//     WATCHSYNC_DIAGNOSTIC_RECORDING = DIAGNOSTIC_RECORDING
+//
+// The optional include below picks it up if present. Because it's a build
+// setting rather than a command-line override, Xcode's Run button honours it
+// too — passing -D on the xcodebuild line does not, which is how a test
+// session's recordings were silently lost.
+//
+// Belt and braces: the source is guarded by `#if DEBUG && DIAGNOSTIC_RECORDING`,
+// so a Release build cannot contain the recording code even if this setting were
+// somehow switched on for it.
+
+WATCHSYNC_DIAGNOSTIC_RECORDING =
+
+#include? "Local.xcconfig"

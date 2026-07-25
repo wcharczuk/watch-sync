@@ -70,7 +70,7 @@ struct AccuracyView: View {
             // The tape takes whatever room is left: it's the part worth looking
             // at, and letting it stretch keeps the idle screen from being mostly
             // dead space.
-            paperTape
+            rateChart
                 .frame(minHeight: 128, maxHeight: .infinity)
             metricsRow
             if showDetail { detailLine }
@@ -209,11 +209,23 @@ struct AccuracyView: View {
         case .locking: return "Locked on — timing each beat against the phone's clock"
         case .measuring: return ""
         case .done: return "You can stop now"
-        case .unstable: return "Press firmer, or move somewhere quieter"
+        case .unstable:
+            return roomIsLoud ? "Too much noise — somewhere quieter would help"
+                              : "Losing contact — press the watch gently onto the mic"
         case .noSignal:
-            return "Press the caseback or crystal to the microphone. A silent room matters a lot."
+            // Two very different failures wear the same face. The room's level
+            // tells them apart: measured across test recordings, a quiet room
+            // sits near 0.1 and talking near 0.3, so the advice can be specific
+            // instead of a list of things to try.
+            return roomIsLoud
+                ? "Too noisy here. Find a quieter spot, and don't talk while measuring — speech drowns the tick completely."
+                : "Rest the watch face-down on the microphone and press gently."
         }
     }
+
+    /// Is the room loud enough to be the problem? Quiet rooms measure ~0.1 on
+    /// this meter, a conversation ~0.3.
+    private var roomIsLoud: Bool { viewModel.audio.inputLevel > 0.2 }
 
     private var stageColor: Color {
         switch stage {
@@ -294,8 +306,8 @@ struct AccuracyView: View {
 
     // MARK: Paper tape
 
-    private var paperTape: some View {
-        PaperTapeView(result: viewModel.result)
+    private var rateChart: some View {
+        MeasurementChartView(result: viewModel.result)
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .fill(Color(uiColor: .secondarySystemBackground))
@@ -426,7 +438,7 @@ struct AccuracyView: View {
             .buttonStyle(.borderedProminent)
             .tint(viewModel.isMeasuring ? .red : .green)
 
-#if DIAGNOSTIC_RECORDING
+#if DEBUG && DIAGNOSTIC_RECORDING
             if !viewModel.isMeasuring, viewModel.audio.lastRecordingURL != nil {
                 Button(action: { shareItems = viewModel.exportItems() }) {
                     Image(systemName: "square.and.arrow.up")
@@ -456,79 +468,137 @@ struct AccuracyView: View {
     }
 }
 
-// MARK: - Paper tape
+// MARK: - Measurement chart
 
-/// The classic timegrapher strip: every beat plotted by how far it has drifted
-/// from a perfect clock. A level line means the watch is on rate; the tilt *is*
-/// the rate deviation, and the tightness of the dots is the signal quality. It's
-/// what makes the headline number checkable rather than something to take on
-/// faith.
-private struct PaperTapeView: View {
+/// An honest report on the measurement, not a verdict on the watch.
+///
+/// It answers three questions and nothing else: how well are we hearing the
+/// tick, what slice of the spectrum are we listening to, and has that slice had
+/// to move? Earlier versions plotted cumulative drift (a straight line by
+/// construction, so it just restated the number) and then per-window rates (a
+/// noise cloud). Neither told you anything about whether to trust the reading.
+///
+/// Detection is the height; jitter — the timing scatter that actually limits
+/// accuracy — is the colour, because a window can miss beats and still time the
+/// ones it finds beautifully.
+private struct MeasurementChartView: View {
     let result: TimegrapherResult?
 
+    private func jitterColor(_ ms: Double) -> Color {
+        if ms < 0.15 { return .green }
+        if ms < 0.3 { return .yellow }
+        return .orange
+    }
+
     var body: some View {
-        Canvas { context, size in
-            let inset: CGFloat = 10
-            let midY = size.height / 2
+        VStack(spacing: 6) {
+            bandStrip
+            Canvas { context, size in
+                let left: CGFloat = 40, inset: CGFloat = 8
+                guard let r = result, r.qualitySamples.count >= 2 else {
+                    context.draw(Text(result?.beatsTracked ?? 0 > 0
+                                      ? "listening…" : "waiting for the tick")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary),
+                                 at: CGPoint(x: size.width / 2, y: size.height / 2))
+                    return
+                }
+                let samples = r.qualitySamples
+                let t0 = samples[0].time
+                let tSpan = max(4.0, (samples.last?.time ?? t0) - t0)
+                let plotW = size.width - left - inset
+                let plotH = size.height - 2 * inset
 
-            var centre = Path()
-            centre.move(to: CGPoint(x: 0, y: midY))
-            centre.addLine(to: CGPoint(x: size.width, y: midY))
-            context.stroke(centre, with: .color(.secondary.opacity(0.25)),
-                           style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                func pt(_ time: Double, _ frac: Double) -> CGPoint {
+                    CGPoint(x: left + (time - t0) / tSpan * plotW,
+                            y: inset + (1 - frac) * plotH)
+                }
 
-            guard let r = result, r.trace.count > 3 else {
-                context.draw(Text("waiting for beats")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary),
-                             at: CGPoint(x: size.width / 2, y: midY))
-                return
+                // Gridlines at 100% and 50% detection.
+                for frac in [1.0, 0.5] {
+                    var g = Path()
+                    g.move(to: pt(t0, frac))
+                    g.addLine(to: pt(t0 + tSpan, frac))
+                    context.stroke(g, with: .color(.secondary.opacity(frac == 1 ? 0.3 : 0.15)),
+                                   style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    context.draw(Text(frac == 1 ? "100%" : "50%")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(.secondary),
+                                 at: CGPoint(x: left - 4, y: pt(t0, frac).y), anchor: .trailing)
+                }
+
+                // Bars: height = beats detected, colour = how precisely timed.
+                let barW = max(2.0, plotW / Double(samples.count) - 2)
+                for s in samples {
+                    let top = pt(s.time, max(0.02, s.detection))
+                    let rect = CGRect(x: top.x - barW / 2, y: top.y,
+                                      width: barW, height: pt(t0, 0).y - top.y)
+                    context.fill(Path(roundedRect: rect, cornerRadius: 1.5),
+                                 with: .color(jitterColor(s.jitterMs).opacity(0.85)))
+                }
             }
-
-            let ys = r.trace.map(\.offsetMs)
-            let minY = ys.min() ?? -1, maxY = ys.max() ?? 1
-            let mid = (maxY + minY) / 2
-            let span = max(0.4, maxY - minY)
-            let t0 = r.trace[0].time
-            let tSpan = max(0.5, r.trace[r.trace.count - 1].time - t0)
-            let plotH = (size.height - 2 * inset) / 2
-
-            func point(_ p: BeatPoint) -> CGPoint {
-                CGPoint(x: (p.time - t0) / tSpan * (size.width - 2 * inset) + inset,
-                        y: midY - CGFloat((p.offsetMs - mid) / span) * plotH)
-            }
-
-            // The beats themselves.
-            for p in r.trace {
-                let pt = point(p)
-                let dot = Path(ellipseIn: CGRect(x: pt.x - 1.3, y: pt.y - 1.3,
-                                                 width: 2.6, height: 2.6))
-                context.fill(dot, with: .color(p.accepted
-                                               ? .green.opacity(0.85)
-                                               : .orange.opacity(0.5)))
-            }
-
-            // The fitted line the headline number comes from.
-            guard r.rateSecondsPerDay != nil else { return }
-            var sw = 0.0, sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0
-            for p in r.trace where p.accepted {
-                sw += 1; sx += p.time; sy += p.offsetMs
-                sxx += p.time * p.time; sxy += p.time * p.offsetMs
-            }
-            guard sw >= 3 else { return }
-            let den = sxx - sx * sx / sw
-            guard den > 0 else { return }
-            let slope = (sxy - sx * sy / sw) / den
-            let intercept = (sy - slope * sx) / sw
-            let a = r.trace[0].time, b = r.trace[r.trace.count - 1].time
-            var line = Path()
-            line.move(to: point(BeatPoint(time: a, offsetMs: intercept + slope * a,
-                                          accepted: true)))
-            line.addLine(to: point(BeatPoint(time: b, offsetMs: intercept + slope * b,
-                                             accepted: true)))
-            context.stroke(line, with: .color(.accentColor.opacity(0.9)),
-                           style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+            legend
         }
+        .padding(.vertical, 6)
+    }
+
+    /// Where in the spectrum we're listening, drawn to scale across the range
+    /// the app can choose from — so "which frequencies" is a picture, not a
+    /// number to interpret.
+    @ViewBuilder
+    private var bandStrip: some View {
+        if let r = result, r.bandLowHz > 0 {
+            let lowest = 4000.0, highest = 23000.0
+            VStack(spacing: 2) {
+                HStack {
+                    Text("Listening \(Int(r.bandLowHz / 1000))–\(Int(r.bandHighHz / 1000)) kHz")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.primary)
+                    if r.retuneCount > 0 {
+                        Text("· re-tuned \(r.retuneCount)×")
+                            .font(.system(size: 11))
+                            .foregroundColor(.orange)
+                    }
+                    Spacer()
+                    Text("of 4–23 kHz")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                GeometryReader { geo in
+                    let x0 = (r.bandLowHz - lowest) / (highest - lowest) * geo.size.width
+                    let x1 = (r.bandHighHz - lowest) / (highest - lowest) * geo.size.width
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color(uiColor: .tertiarySystemFill))
+                        Capsule()
+                            .fill(Color.accentColor.opacity(0.7))
+                            .frame(width: max(4, x1 - x0))
+                            .offset(x: x0)
+                    }
+                }
+                .frame(height: 5)
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+
+    private var legend: some View {
+        HStack(spacing: 10) {
+            Text("Beats detected")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+            Spacer()
+            Text("timing")
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+            ForEach([("< 0.15", Color.green), ("< 0.3", Color.yellow),
+                     ("> 0.3 ms", Color.orange)], id: \.0) { label, color in
+                HStack(spacing: 3) {
+                    Circle().fill(color).frame(width: 6, height: 6)
+                    Text(label).font(.system(size: 9)).foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 4)
     }
 }
 
@@ -601,7 +671,7 @@ final class TimegrapherViewModel: ObservableObject {
         isMeasuring = false
     }
 
-#if DIAGNOSTIC_RECORDING
+#if DEBUG && DIAGNOSTIC_RECORDING
     /// The raw WAV plus a JSON sidecar of the app's computed metrics, for
     /// offline DSP tuning and Swift-vs-Python parity checks.
     func exportItems() -> [Any] {
@@ -677,11 +747,11 @@ private struct HelpView: View {
                     )
                     section(
                         title: "Set up the shot",
-                        body: "Press the watch firmly against your phone's microphone (the bottom edge on most iPhones). Through the crystal, with the strap on, works fine — you don't need the caseback off. A silent room matters a lot."
+                        body: "Rest the watch on your phone's microphone (the bottom edge on most iPhones) with firm, steady contact. The crystal works as well as the caseback — often better, since a bracelet or single-pass strap frequently covers the back — so face-down is usually the easiest way to get metal or glass onto the mic. Keep the strap on; you don't need to open anything."
                     )
                     section(
-                        title: "The paper tape",
-                        body: "Each dot is one beat, plotted by how far it has drifted from a perfect clock. The tilt of the line is the rate — that's where the headline number comes from. Tight dots on a straight line mean a clean measurement; scattered dots mean the microphone is losing the tick."
+                        title: "The chart",
+                        body: "This reports on the measurement, not on your watch. Bar height is the share of expected beats actually detected in that couple of seconds; the colour is how precisely those beats were timed, which is what limits accuracy. Above it is the slice of the spectrum being listened to, drawn against the full 4–23 kHz the app can choose from — escapements sound different from watch to watch, so it picks the band where the tick is sharpest and says so."
                     )
                     section(
                         title: "Beat error",
@@ -696,8 +766,8 @@ private struct HelpView: View {
                         body: "Nothing is recorded. The audio is analysed as it arrives and discarded — the code that could write it to disk isn't in this build at all."
                     )
                     section(
-                        title: "The limit",
-                        body: "The reading is against your phone's crystal, which is itself good to roughly half a second a day — so ± never claims better than that."
+                        title: "What defeats it",
+                        body: "Talking is the one thing that reliably stops a reading — speech puts energy right where the tick lives, and in tests no amount of extra listening recovered it. Stay quiet and the app copes with a lot: a running air conditioner is almost entirely low rumble and gets filtered out before it reaches the tick. The reading is also against your phone's own crystal, good to roughly half a second a day, so the ± never claims better than that."
                     )
                 }
                 .padding()

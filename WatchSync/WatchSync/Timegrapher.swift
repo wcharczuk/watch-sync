@@ -1,11 +1,21 @@
 import Foundation
 
-/// A point on the paper tape: a beat's cumulative timing offset against a
-/// perfect clock. The slope of this line *is* the rate.
-struct BeatPoint {
-    let time: Double        // seconds into the recording
-    let offsetMs: Double    // (actual − nominal) beat time, ms
-    let accepted: Bool      // false = rejected by the outlier filter
+/// One independent sub-window measurement: a few seconds of beats fitted on
+/// their own. These are exactly what the ± is computed from.
+struct RateSample {
+    let time: Double        // seconds into the recording (block centre)
+    let rate: Double        // s/day from this block alone
+}
+
+/// How well the tick was heard over a short window — the honest report on the
+/// *measurement*, as opposed to any verdict about the watch.
+struct QualitySample {
+    let time: Double        // seconds into the recording (window centre)
+    /// Fraction of expected beats that matched the tick template, 0…1.
+    let detection: Double
+    /// Timing scatter of the beats that did match (ms). This is what limits
+    /// accuracy; detection alone can dip without the reading suffering.
+    let jitterMs: Double
 }
 
 /// What the measurement is doing right now. One source of truth — the view
@@ -59,8 +69,12 @@ struct TimegrapherResult {
     /// Estimated seconds still needed to reach the target precision.
     let secondsRemaining: Double?
 
-    /// Paper tape: cumulative beat offset vs time.
-    let trace: [BeatPoint]
+    /// Independent sub-window rates.
+    let rateSamples: [RateSample]
+    /// Per-window tick-detection quality, for the chart.
+    let qualitySamples: [QualitySample]
+    /// How many times the listening band had to be re-chosen mid-measurement.
+    let retuneCount: Int
 }
 
 /// A second-order IIR biquad (transposed direct form II).
@@ -486,6 +500,70 @@ private final class BeatTracker {
         return (nominalCycle / slope - 1) * 86_400
     }
 
+    /// Detection rate and timing jitter over short windows, so the chart can
+    /// show how well the tick is being heard as the measurement proceeds.
+    func qualitySamples(window: Double) -> [QualitySample] {
+        var out: [QualitySample] = []
+        guard !beatT.isEmpty else { return out }
+        var t0 = beatT[0]
+        let last = beatT[beatT.count - 1]
+        while t0 < last {
+            var total = 0, kept = 0
+            var resid: [Double] = []
+            for i in 0..<beatK.count where beatT[i] >= t0 && beatT[i] < t0 + window {
+                total += 1
+                if beatKeep[i] {
+                    kept += 1
+                    resid.append(beatT[i] - (intercept + slope * Double(beatK[i])))
+                }
+            }
+            if total >= 4 {
+                var jitter = 0.0
+                if resid.count > 2 {
+                    var m = 0.0
+                    for v in resid { m += v }
+                    m /= Double(resid.count)
+                    var sq = 0.0
+                    for v in resid { sq += (v - m) * (v - m) }
+                    jitter = (sq / Double(resid.count - 1)).squareRoot() * 1000
+                }
+                out.append(QualitySample(time: t0 + window / 2,
+                                         detection: Double(kept) / Double(total),
+                                         jitterMs: jitter))
+            }
+            t0 += window
+        }
+        return out
+    }
+
+    /// Rates fitted independently in non-overlapping blocks, each tagged with
+    /// the middle of the window it came from.
+    func blockSamples(tau: Double) -> [RateSample] {
+        var out: [RateSample] = []
+        guard !beatT.isEmpty else { return out }
+        var t0 = beatT[0]
+        let last = beatT[beatT.count - 1]
+        while t0 <= last - tau {
+            var sw = 0.0, sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0
+            for i in 0..<beatK.count where beatKeep[i] && beatT[i] >= t0 && beatT[i] < t0 + tau {
+                let x = Double(beatK[i]), y = beatT[i]
+                sw += 1; sx += x; sy += y; sxx += x * x; sxy += x * y
+            }
+            if sw >= 8 {
+                let den = sxx - sx * sx / sw
+                if den > 0 {
+                    let slope = (sxy - sx * sy / sw) / den
+                    if slope > 0 {
+                        out.append(RateSample(time: t0 + tau / 2,
+                                              rate: (nominalCycle / slope - 1) * 86_400))
+                    }
+                }
+            }
+            t0 += tau
+        }
+        return out
+    }
+
     /// Rates fitted independently in blocks of `tau` seconds of beats.
     func blockRates(tau: Double, step: Double) -> [Double] {
         var rates: [Double] = []
@@ -577,8 +655,21 @@ final class Timegrapher {
     /// in whole s/day, so resolving past ±2 tells the owner nothing more.
     static let targetPrecision = 2.0
 
-    /// Seconds of audio gathered before the band probe runs.
+    /// Is the tracking good enough to trust, by the same rule the band probe
+    /// uses? Jitter leads: a tick timed to a few tens of microseconds is a real
+    /// escapement even if some beats were missed, whereas noise mistimes by
+    /// milliseconds. Gating on detection alone called a 0.019 ms lock unstable.
+    static func trackingIsHealthy(_ q: (jitterMs: Double, detection: Double, score: Double))
+        -> Bool {
+        let clean = q.jitterMs < 0.3 && q.detection >= 0.6 && q.score >= 0.5
+        let solid = q.jitterMs < 0.5 && q.detection >= 0.85 && q.score >= 0.6
+        return clean || solid
+    }
+
+    /// Seconds of audio gathered before the band probe first runs.
     private static let probeSeconds = 4.0
+    /// How far the probe window may grow while retrying.
+    private static let maxProbeSeconds = 16.0
     private static let blockSeconds = 5.0
 
     // Config
@@ -597,6 +688,8 @@ final class Timegrapher {
     private var probed = false
     /// Consecutive analysis passes with unusable tracking, for lock recovery.
     private var badPasses = 0
+    /// How many times the band had to be re-chosen mid-measurement.
+    private var retuneCount = 0
     private var progressHighWater = 0.0
 
     // MARK: Setup
@@ -612,6 +705,7 @@ final class Timegrapher {
         tracker = nil
         probed = false
         badPasses = 0
+        retuneCount = 0
         progressHighWater = 0
     }
 
@@ -652,11 +746,13 @@ final class Timegrapher {
         var probeSrc: [Float] = []
         var tail: [Float] = []
         if !probed {
-            // The probe needs to see the opening seconds, so nothing is drained
-            // until it has run.
+            // Nothing is drained until the probe has succeeded: if it fails we
+            // want to try again over a *longer* window rather than a fresh short
+            // one. A quiet recording that can't be identified in 4 s often can
+            // be in 8, and throwing the audio away made "Ready" drag for no
+            // reason. Capped so the probe can't grow without bound.
             if raw.count >= probeCount {
-                probeSrc = Array(raw[0..<probeCount])
-                raw.removeFirst(probeCount)
+                probeSrc = Array(raw.prefix(Int(Timegrapher.maxProbeSeconds * fs)))
             }
         } else {
             tail = raw
@@ -676,11 +772,19 @@ final class Timegrapher {
             }
             tracker = probeBands(probeSrc, fs: fs, manual: manual)
             guard tracker != nil else {
-                // Nothing to lock onto in that window. Leave the probe armed so
-                // it runs again on the next few seconds of audio — the user may
-                // simply not have the watch against the mic yet.
+                // Nothing to lock onto yet. The audio stays buffered so the next
+                // attempt sees a longer window; once it stops growing there is
+                // genuinely nothing there to find.
+                if Double(raw.count) >= Timegrapher.maxProbeSeconds * fs {
+                    lock.lock()
+                    raw.removeFirst(raw.count / 2)
+                    lock.unlock()
+                }
                 return idle(elapsed > 14 ? .noSignal : .tuning, elapsed)
             }
+            lock.lock()
+            raw.removeFirst(min(probeSrc.count, raw.count))
+            lock.unlock()
             probed = true
             return idle(.tuning, elapsed)
         }
@@ -711,6 +815,7 @@ final class Timegrapher {
             self.tracker = nil
             probed = false
             badPasses = 0
+            retuneCount += 1
             return idle(.tuning, elapsed)
         }
 
@@ -733,7 +838,7 @@ final class Timegrapher {
     /// then track each one. Timing jitter separates a real escapement from noise
     /// by a factor of a hundred — 0.05 ms against 8 ms — so it decides.
     private func probeBands(_ src: [Float], fs: Double, manual: Int?) -> BeatTracker? {
-        let scanCount = min(src.count, Int(Timegrapher.probeSeconds * fs))
+        let scanCount = src.count
         let candidates = manual.map { [$0] } ?? Timegrapher.standardBPH
 
         var pairs: [(bandProm: Double, prom: Double, lo: Double, hi: Double, bph: Int)] = []
@@ -777,7 +882,13 @@ final class Timegrapher {
             let q = t.quality()
             // A real escapement times to a fraction of a millisecond. Anything
             // looser is room noise dressed up as a beat.
-            guard q.detection >= 0.85, q.jitterMs < 1.0, q.score >= 0.6 else { continue }
+            // Jitter is the real discriminator — a genuine escapement times to
+            // a few tens of microseconds, noise to milliseconds — so a very
+            // clean tick is accepted even if some beats were missed. Requiring
+            // 85% detection alone rejected a band with 0.013 ms jitter.
+            let clean = q.jitterMs < 0.3 && q.detection >= 0.6 && q.score >= 0.5
+            let solid = q.jitterMs < 1.0 && q.detection >= 0.85 && q.score >= 0.6
+            guard clean || solid else { continue }
             let key = (q.jitterMs, -q.score)
             if key < winnerKey { winnerKey = key; winner = t }
         }
@@ -859,7 +970,8 @@ final class Timegrapher {
             uncertainty: nil, beatErrorMs: nil, jitterMs: 0, detectionRate: 0,
             matchScore: 0, beatsTracked: 0, elapsedSeconds: elapsed,
             bandLowHz: tracker?.lo ?? 0, bandHighHz: tracker?.hi ?? 0,
-            progress: progressHighWater, secondsRemaining: nil, trace: [])
+            progress: progressHighWater, secondsRemaining: nil, rateSamples: [],
+            qualitySamples: [], retuneCount: retuneCount)
     }
 
     private func buildResult(_ t: BeatTracker, elapsed: Double) -> TimegrapherResult {
@@ -908,7 +1020,7 @@ final class Timegrapher {
         var stage: MeasurementStage
         if rate == nil || unc == nil {
             stage = .locking
-        } else if q.detection < 0.85 || q.jitterMs > 0.5 || q.score < 0.6 {
+        } else if !Timegrapher.trackingIsHealthy(q) {
             stage = .unstable
         } else if unc! <= Timegrapher.targetPrecision {
             stage = .done
@@ -935,19 +1047,11 @@ final class Timegrapher {
         }
         progressHighWater = max(progressHighWater, progress)
 
-        // Paper tape: cumulative offset against a perfect clock.
-        var trace: [BeatPoint] = []
-        if !t.beatK.isEmpty {
-            let step = max(1, t.beatK.count / 240)
-            var i = 0
-            while i < t.beatK.count {
-                let offset = (t.beatT[i] - t.intercept
-                              - t.nominalCycle * Double(t.beatK[i])) * 1000
-                trace.append(BeatPoint(time: t.beatT[i], offsetMs: offset,
-                                       accepted: t.beatKeep[i]))
-                i += step
-            }
-        }
+        // Independent sub-window measurements, non-overlapping so each really is
+        // a separate piece of evidence rather than a smoothed version of its
+        // neighbour.
+        let samples = t.blockSamples(tau: Timegrapher.blockSeconds)
+        let quality = t.qualitySamples(window: 2.0)
 
         return TimegrapherResult(
             stage: stage,
@@ -964,6 +1068,8 @@ final class Timegrapher {
             bandHighHz: t.hi,
             progress: progressHighWater,
             secondsRemaining: remaining,
-            trace: trace)
+            rateSamples: samples,
+            qualitySamples: quality,
+            retuneCount: retuneCount)
     }
 }

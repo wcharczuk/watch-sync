@@ -353,12 +353,22 @@ record and publish a measured ±.
 - `WatchSync/WatchSync/Timegrapher.swift` — the shipping analyzer.
 - `ml/tune_timegrapher.py` — faithful port + live replay of a recorded WAV
   (`--summary` for one line per file). Use it to tune before touching Swift.
-  Getting a WAV out of the app needs a **diagnostic build** — set the
-  `WATCHSYNC_DIAGNOSTIC_RECORDING=DIAGNOSTIC_RECORDING` build setting. In a
-  normal build the recording code isn't compiled in at all: a measurement
-  analyses the audio in memory and leaves nothing behind. Verified at the object
-  level — without the flag, `AVAudioFile`, `recordFile` and `lastRecordingURL`
-  produce no symbols.
+  Getting a WAV out of the app needs a **diagnostic build**. Create
+  `WatchSync/Config/Local.xcconfig` (gitignored) containing:
+
+      WATCHSYNC_DIAGNOSTIC_RECORDING = DIAGNOSTIC_RECORDING
+
+  and build normally — Xcode's Run button honours it, which a `-D` on the
+  xcodebuild command line does not. Delete the file to turn it off again.
+
+  The structure is deliberate: the only committed definition
+  (`Config/Diagnostics.xcconfig`) is empty and pulls the local file in with
+  `#include?`, so a fresh clone cannot record and the "on" value cannot be
+  committed by accident. The source additionally requires `DEBUG`
+  (`#if DEBUG && DIAGNOSTIC_RECORDING`), so a Release build cannot contain the
+  recording code even if the setting were switched on by mistake. In a normal
+  build a measurement analyses the audio in memory and leaves nothing behind.
+
 - `ml/tg_lab.py` — the original comparison of lock-in vs beat tracking.
 - `ml/exp_uncertainty.py` — what predicts the error (± calibration).
 - `ml/exp_band.py` — band sweep: prominence vs jitter ranking.

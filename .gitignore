@@ -20,3 +20,6 @@ ml/diagnostics_*/
 
 # Pulled off the device before wiping its Documents; not worth committing
 ml/recordings-archive/
+
+# Local-only opt-in for diagnostic audio recording
+WatchSync/Config/Local.xcconfig

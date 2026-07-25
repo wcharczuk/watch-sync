@@ -23,6 +23,7 @@
 		A1B2C3D400000016 /* AccuracyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccuracyView.swift; sourceTree = "<group>"; };
 		A1B2C3D40000001A /* AudioCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureManager.swift; sourceTree = "<group>"; };
 		A1B2C3D40000001B /* Timegrapher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Timegrapher.swift; sourceTree = "<group>"; };
+		A1B2C3D400000090 /* Diagnostics.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Diagnostics.xcconfig; path = Config/Diagnostics.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,6 +54,7 @@
 				A1B2C3D40000001A /* AudioCaptureManager.swift */,
 				A1B2C3D40000001B /* Timegrapher.swift */,
 				A1B2C3D400000013 /* Assets.xcassets */,
+				A1B2C3D400000090 /* Diagnostics.xcconfig */,
 			);
 			path = WatchSync;
 			sourceTree = "<group>";
@@ -147,6 +149,7 @@
 /* Begin XCBuildConfiguration section */
 		A1B2C3D400000052 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1B2C3D400000090 /* Diagnostics.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -206,7 +209,6 @@
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited) $(WATCHSYNC_DIAGNOSTIC_RECORDING)";
-				WATCHSYNC_DIAGNOSTIC_RECORDING = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;

@@ -9,10 +9,10 @@ import Combine
 /// exactly what we need to preserve.
 ///
 /// Audio is analysed in memory and discarded. Writing a WAV to disk exists only
-/// in builds compiled with the `DIAGNOSTIC_RECORDING` condition (set the
-/// `WATCHSYNC_DIAGNOSTIC_RECORDING` build setting to `DIAGNOSTIC_RECORDING`).
-/// In a normal build the recording code isn't compiled at all, so a measurement
-/// cannot leave anything behind.
+/// in a developer's own debug build: it requires both `DEBUG` and an opt-in the
+/// repository cannot carry — see `Config/Diagnostics.xcconfig`. Requiring `DEBUG`
+/// as well means a Release build cannot contain the recording code even if the
+/// setting were switched on by mistake, so a shipped app has no path to it.
 ///
 /// All `AVAudioSession` / `AVAudioEngine` calls run on a dedicated serial queue,
 /// never the main thread: those synchronous AVFoundation calls otherwise trip the
@@ -24,7 +24,7 @@ final class AudioCaptureManager: ObservableObject {
     @Published var permission: PermissionState = .unknown
     /// Smoothed input level (0…1) for the live meter.
     @Published var inputLevel: Float = 0
-#if DIAGNOSTIC_RECORDING
+#if DEBUG && DIAGNOSTIC_RECORDING
     /// URL of the most recently finished raw recording (diagnostic builds only).
     @Published var lastRecordingURL: URL?
 #endif
@@ -36,7 +36,7 @@ final class AudioCaptureManager: ObservableObject {
     private let engineQueue = DispatchQueue(label: "audio.engine", qos: .userInitiated)
     private var running = false
 
-#if DIAGNOSTIC_RECORDING
+#if DEBUG && DIAGNOSTIC_RECORDING
     // Raw-audio recording for offline DSP tuning.
     private var recordFile: AVAudioFile?
     private var recordURL: URL?
@@ -83,7 +83,7 @@ final class AudioCaptureManager: ObservableObject {
             // there's no race with process().
             prepare(format.sampleRate)
 
-#if DIAGNOSTIC_RECORDING
+#if DEBUG && DIAGNOSTIC_RECORDING
             // Diagnostic builds only: a raw WAV alongside the live analysis, so
             // the exact audio can be replayed and the DSP tuned offline. Written
             // to Documents (UIFileSharingEnabled) so it can be pulled off the
@@ -93,6 +93,11 @@ final class AudioCaptureManager: ObservableObject {
             let ts = Int(Date().timeIntervalSince1970)
             let docs = FileManager.default.urls(for: .documentDirectory,
                                                 in: .userDomainMask)[0]
+            // A fresh container has no Documents directory — iOS reports the
+            // path but only creates it on demand — and AVAudioFile won't make
+            // one, it just throws. Recordings vanished silently until this.
+            try? FileManager.default.createDirectory(at: docs,
+                                                     withIntermediateDirectories: true)
             let url = docs.appendingPathComponent("watch-\(ts).wav")
             do {
                 self.recordFile = try AVAudioFile(forWriting: url,
@@ -126,7 +131,7 @@ final class AudioCaptureManager: ObservableObject {
             self.engine.stop()
             self.running = false
             try? AVAudioSession.sharedInstance().setActive(false)
-#if DIAGNOSTIC_RECORDING
+#if DEBUG && DIAGNOSTIC_RECORDING
             // Releasing the AVAudioFile finalizes the WAV header on disk.
             let url = self.recordURL
             self.recordFile = nil
@@ -134,7 +139,7 @@ final class AudioCaptureManager: ObservableObject {
 #endif
             DispatchQueue.main.async {
                 self.inputLevel = 0
-#if DIAGNOSTIC_RECORDING
+#if DEBUG && DIAGNOSTIC_RECORDING
                 self.lastRecordingURL = url
 #endif
             }
@@ -146,7 +151,7 @@ final class AudioCaptureManager: ObservableObject {
         let count = Int(buffer.frameLength)
         guard count > 0 else { return }
 
-#if DIAGNOSTIC_RECORDING
+#if DEBUG && DIAGNOSTIC_RECORDING
         if let file = recordFile { try? file.write(from: buffer) }
 #endif
 
