@@ -375,6 +375,20 @@ def dft_mag(e, fs, f):
     return abs(np.dot(e, np.exp(-2j * np.pi * f / fs * np.arange(n)))) / n
 
 
+def harmonic_prominence(e, er, bph):
+    """Beat-line strength for a candidate rate, summed over harmonics.
+
+    A tick train is impulsive, so its envelope carries real energy at 2f0 and
+    3f0 too. Noise can flatter a wrong candidate's fundamental by luck; matching
+    the whole comb is much harder to do by accident.
+    """
+    f0 = bph / 3600
+    signal = sum(dft_mag(e, er, f0 * k) for k in (1, 2, 3))
+    offsets = (0.6, 0.75, 1.2, 1.35, 1.6, 2.4, 2.7)
+    noise = np.mean([dft_mag(e, er, f0 * k) for k in offsets])
+    return signal / (3 * noise + 1e-12)
+
+
 class Timegrapher:
     def __init__(self, fs, manual_bph=None):
         self.fs = fs
@@ -429,29 +443,40 @@ class Timegrapher:
         return self._build(self.tracker, elapsed)
 
     def _probe(self, src):
+        """Choose band *and* beat rate by tracking candidates, not by spectrum.
+
+        The spectrum alone picks the loudest band (not always the sharpest) and,
+        under impulsive noise, the wrong rate — after which the tracker hunts for
+        beats that were never there. Jitter separates a real escapement from
+        noise by a factor of a hundred, so it decides.
+        """
         scan = src[: int(PROBE_SECONDS * self.fs)]
         cands = [self.manual] if self.manual else STANDARD_BPH
-        shortlist = []
+        pairs = []
         for lo, hi in CANDIDATE_BANDS:
             e, er = coarse_envelope(scan, self.fs, lo, hi)
             if len(e) <= er:
                 continue
-            best = None
-            for bph in cands:
-                f0 = bph / 3600
-                mag = dft_mag(e, er, f0)
-                noise = np.mean([dft_mag(e, er, f0 * k)
-                                 for k in (0.6, 0.75, 1.2, 1.35, 1.6)])
-                prom = mag / (noise + 1e-12)
-                if best is None or prom > best[0]:
-                    best = (prom, bph)
-            shortlist.append((best[0], lo, hi, best[1]))
-        if not shortlist:
+            scored = sorted(((harmonic_prominence(e, er, bph), bph) for bph in cands),
+                            reverse=True)
+            band_prom = scored[0][0]
+            # Each band's two best rates: the runner-up is what saves the
+            # measurement when noise flatters the wrong one.
+            for prom, bph in scored[:2]:
+                pairs.append((band_prom, prom, lo, hi, bph))
+        if not pairs:
             return None
-        shortlist.sort(reverse=True)
+        pairs.sort(key=lambda t: (-t[0], -t[1]))
+
+        seen, shortlist = set(), []
+        for _, _, lo, hi, bph in pairs:
+            if len(seen) >= 3 and (lo, hi) not in seen:
+                continue
+            seen.add((lo, hi))
+            shortlist.append((lo, hi, bph))
 
         winner, winner_key = None, (np.inf, 0.0)
-        for prom, lo, hi, bph in shortlist[:3]:
+        for lo, hi, bph in shortlist:
             t = BeatTracker(lo, hi, bph, self.fs)
             t.extend(scan)
             if not t.step() or t.accepted < 12:

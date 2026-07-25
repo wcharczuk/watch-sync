@@ -719,39 +719,57 @@ final class Timegrapher {
 
     // MARK: Band + beat-rate selection
 
-    /// Shortlist bands by how sharply the beat line stands above its neighbours,
-    /// then run the top few for real and keep whichever times beats most
-    /// precisely. Spectral strength alone picks the *loudest* band, which is not
-    /// always the *sharpest* one: a ringing band can carry a strong beat line
-    /// while smearing every individual tick.
+    /// Choose the listening band *and* the beat rate by trying candidates for
+    /// real rather than trusting the spectrum.
+    ///
+    /// Two things the spectrum alone gets wrong. It picks the *loudest* band,
+    /// which isn't always the sharpest — a ringing band can carry a strong beat
+    /// line while smearing every tick. And under impulsive noise (a knock, the
+    /// watch shifting) it picks the wrong *rate*: injected-noise tests had it
+    /// choosing 21600 for a 28800 movement, after which the tracker hunts for
+    /// beats that were never there and the measurement is simply lost.
+    ///
+    /// So: shortlist (band, rate) pairs on a harmonic-summed spectral score,
+    /// then track each one. Timing jitter separates a real escapement from noise
+    /// by a factor of a hundred — 0.05 ms against 8 ms — so it decides.
     private func probeBands(_ src: [Float], fs: Double, manual: Int?) -> BeatTracker? {
         let scanCount = min(src.count, Int(Timegrapher.probeSeconds * fs))
         let candidates = manual.map { [$0] } ?? Timegrapher.standardBPH
 
-        var shortlist: [(prom: Double, lo: Double, hi: Double, bph: Int)] = []
+        var pairs: [(bandProm: Double, prom: Double, lo: Double, hi: Double, bph: Int)] = []
         for band in Timegrapher.candidateBands {
             let (e, er) = coarseEnvelope(src, count: scanCount, fs: fs,
                                          lo: band.lo, hi: band.hi)
             guard e.count > Int(er) else { continue }
-            var best: (prom: Double, bph: Int)?
+            var scored: [(prom: Double, bph: Int)] = []
             for candidate in candidates {
-                let f0 = Double(candidate) / 3600
-                let mag = dftMag(e, fs: er, f: f0)
-                var noise = 0.0
-                for k in [0.6, 0.75, 1.2, 1.35, 1.6] { noise += dftMag(e, fs: er, f: f0 * k) }
-                noise /= 5
-                let prom = mag / (noise + 1e-12)
-                if best == nil || prom > best!.prom { best = (prom, candidate) }
+                scored.append((harmonicProminence(e, fs: er, bph: candidate), candidate))
             }
-            if let best { shortlist.append((best.prom, band.lo, band.hi, best.bph)) }
+            scored.sort { $0.prom > $1.prom }
+            guard let bandProm = scored.first?.prom else { continue }
+            // Keep each band's two best rates: the runner-up is what saves the
+            // measurement when noise flatters the wrong one.
+            for entry in scored.prefix(2) {
+                pairs.append((bandProm, entry.prom, band.lo, band.hi, entry.bph))
+            }
         }
-        shortlist.sort { $0.prom > $1.prom }
-        guard !shortlist.isEmpty else { return nil }
+        guard !pairs.isEmpty else { return nil }
+        pairs.sort { $0.bandProm != $1.bandProm ? $0.bandProm > $1.bandProm : $0.prom > $1.prom }
+
+        // Candidates from the three most promising bands.
+        var seenBands: Set<String> = []
+        var shortlist: [(lo: Double, hi: Double, bph: Int)] = []
+        for pair in pairs {
+            let key = "\(pair.lo)-\(pair.hi)"
+            if seenBands.count >= 3, !seenBands.contains(key) { continue }
+            seenBands.insert(key)
+            shortlist.append((pair.lo, pair.hi, pair.bph))
+        }
 
         let probe = Array(src[0..<scanCount])
         var winner: BeatTracker?
         var winnerKey = (Double.infinity, 0.0)
-        for entry in shortlist.prefix(3) {
+        for entry in shortlist {
             let t = BeatTracker(lo: entry.lo, hi: entry.hi, bph: entry.bph,
                                 sampleRate: fs, targetEnvRate: Timegrapher.envRate)
             t.extend(probe)
@@ -760,8 +778,6 @@ final class Timegrapher {
             // A real escapement times to a fraction of a millisecond. Anything
             // looser is room noise dressed up as a beat.
             guard q.detection >= 0.85, q.jitterMs < 1.0, q.score >= 0.6 else { continue }
-            // Rank by timing jitter — a smeared tick shows up here and nowhere
-            // else — then by how well the template matches.
             let key = (q.jitterMs, -q.score)
             if key < winnerKey { winnerKey = key; winner = t }
         }
@@ -794,6 +810,22 @@ final class Timegrapher {
             for i in 0..<e.count { e[i] -= m }
         }
         return (e, er)
+    }
+
+    /// Beat-line strength for a candidate rate, summed over harmonics.
+    ///
+    /// A tick train is impulsive, so its envelope carries real energy at 2f0 and
+    /// 3f0 as well. Noise can flatter a wrong candidate's fundamental by luck;
+    /// matching the whole comb is much harder to do by accident.
+    private func harmonicProminence(_ e: [Double], fs: Double, bph: Int) -> Double {
+        let f0 = Double(bph) / 3600
+        var signal = 0.0
+        for k in [1.0, 2.0, 3.0] { signal += dftMag(e, fs: fs, f: f0 * k) }
+        var noise = 0.0
+        let offsets = [0.6, 0.75, 1.2, 1.35, 1.6, 2.4, 2.7]
+        for k in offsets { noise += dftMag(e, fs: fs, f: f0 * k) }
+        noise /= Double(offsets.count)
+        return signal / (3 * noise + 1e-12)
     }
 
     /// Magnitude of the envelope's DFT bin at frequency f.

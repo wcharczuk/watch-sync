@@ -292,6 +292,45 @@ nearly every beat, and restarting there would discard a usable measurement.
   clock, with the fitted line drawn through it. The headline number is the slope
   of that line, so the user can check it by eye.
 
+## Noise: where it breaks, and why the rate detector matters most
+
+Injected-interference tests (`ml/exp_noise.py`) add controlled noise to clean
+recordings and score against that recording's own clean reading. Four kinds, at
+levels in dB relative to the recording's in-band RMS:
+
+| interference | accurate to | fails by |
+|---|---|---|
+| narrowband tone (fan, coil whine) | **+30 dB** and beyond | never — the band probe routes around it |
+| broadband hiss | **+18 dB** | lost lock at +24 |
+| bursty rustle (fabric, hands) | **+18 dB** | lost lock at +24 |
+| impulsive knocks | **+18 dB** | lost lock at +24 |
+
+Two things worth stating. Errors stay under ~0.9 s/day right up to the cliff, and
+past it the result is **no reading**, never a confident wrong one — every failure
+shows up as a wider ±, the `unstable` stage, or a refusal to lock.
+
+The cliff was *not* the acceptance gates. Under impulsive noise the **beat rate**
+was misidentified — 21600 chosen for a 28800 movement — after which the tracker
+hunts for beats that were never there and everything downstream is garbage. The
+spectral score looks at one line, and noise has enough broadband structure to
+flatter the wrong one. Fixed by scoring candidates on a **harmonic sum** (a tick
+train has real energy at 2f0 and 3f0; noise rarely matches the whole comb) and by
+probing **(band, rate) pairs** — each band's two best rates — then letting
+measured timing jitter choose. Jitter separates a real escapement from noise by
+a factor of a hundred (0.05 ms vs 8 ms). This recovers cases that were previously
+lost and leaves all nine clean recordings bit-identical.
+
+### Mitigations that did *not* work
+- **tg's noise suppressor** (zeroing windows above the median energy) made things
+  *worse* — it lost cases the baseline handled. It suits tg's peak-picking
+  detector; our matched filter is already robust to impulsive noise, and blanking
+  samples corrupts the correlation it depends on.
+- **Relaxing the probe gates** — more locks, but worse readings. The gates are
+  rejecting genuine garbage.
+- **A longer template** (2× integration) improved accuracy on the cases that
+  survived but lost more of them; the extra length spans real beat-to-beat
+  variation.
+
 ## Limits
 - The reading is against the phone's crystal (~±0.5 s/day), hence the ± floor.
   tg solves this with a GPS/reference calibration mode; we don't, yet.
