@@ -15,7 +15,10 @@ import Combine
 ///                               it only wants time, and it only goes forward.
 struct AccuracyView: View {
     @StateObject private var viewModel = TimegrapherViewModel()
+    @StateObject private var store = ReadingStore()
     @State private var showHelp = false
+    @State private var showHistory = false
+    @State private var saving: TimegrapherResult?
     @State private var showDetail = false
     @State private var shareItems: [Any]?
 
@@ -33,6 +36,10 @@ struct AccuracyView: View {
             }
         }
         .sheet(isPresented: $showHelp) { HelpView() }
+        .sheet(isPresented: $showHistory) { HistoryView(store: store) }
+        .sheet(item: $saving) { result in
+            SaveReadingView(store: store, result: result)
+        }
     }
 
     // MARK: Permission
@@ -451,6 +458,24 @@ struct AccuracyView: View {
             }
 #endif
 
+            if let r = viewModel.result, r.rateSecondsPerDay != nil, !r.signature.isEmpty {
+                Button(action: { saving = r }) {
+                    Image(systemName: "square.and.arrow.down")
+                        .font(.system(size: 22, weight: .medium))
+                        .frame(width: 50, height: 50)
+                }
+                .buttonStyle(.bordered)
+                .tint(.accentColor)
+            }
+
+            Button(action: { showHistory = true }) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 22, weight: .medium))
+                    .frame(width: 50, height: 50)
+            }
+            .buttonStyle(.bordered)
+            .tint(.secondary)
+
             Button(action: { showHelp = true }) {
                 Image(systemName: "questionmark.circle")
                     .font(.system(size: 22, weight: .medium))
@@ -729,6 +754,10 @@ private struct HelpView: View {
                     section(
                         title: "Recordings",
                         body: "Nothing is recorded. The audio is analysed as it arrives and discarded — the code that could write it to disk isn't in this build at all."
+                    )
+                    section(
+                        title: "Saving readings",
+                        body: "Tap the save button once a reading settles and give it a watch name. One reading tells you the rate; a series tells you whether it's changing, which is the thing worth knowing. Record the position too — a watch runs at different rates dial-up versus crown-down, often by more than it drifts in a month, so comparing readings taken in different positions can invent a problem that isn't there. If the app has heard the watch before it will offer a guess at which one it is; confirm or correct it."
                     )
                     section(
                         title: "What defeats it",

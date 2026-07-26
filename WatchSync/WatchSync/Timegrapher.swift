@@ -38,7 +38,9 @@ enum MeasurementStage {
 }
 
 /// Result of one analysis pass.
-struct TimegrapherResult {
+struct TimegrapherResult: Identifiable {
+    /// Identity for sheet presentation; each pass is a distinct result.
+    let id = UUID()
     let stage: MeasurementStage
 
     /// Nominal beat rate (auto-detected or manual override); 0 until identified.
@@ -75,6 +77,8 @@ struct TimegrapherResult {
     let qualitySamples: [QualitySample]
     /// How many times the listening band had to be re-chosen mid-measurement.
     let retuneCount: Int
+    /// Acoustic signature of the averaged tick, for recognising this watch again.
+    let signature: [Double]
 }
 
 /// A second-order IIR biquad (transposed direct form II).
@@ -145,6 +149,8 @@ private final class BeatTracker {
     /// Beat count at the last refold; 0 = never folded.
     private(set) var refolded = 0
     private(set) var beatErrorMs: Double?
+    /// The averaged tick, normalised — the acoustic shape of this movement.
+    private(set) var signature: [Double] = []
 
     init(lo: Double, hi: Double, bph: Int, sampleRate: Double, targetEnvRate: Double) {
         self.lo = lo
@@ -426,10 +432,49 @@ private final class BeatTracker {
         }
         template = tpl
         beatErrorMs = Self.beatError(wf, sampleRate: envRate)
+        signature = Self.signature(wf, peak: peak, sampleRate: envRate)
         // The refold moves where the template's origin sits inside the beat, so
         // re-anchor the fit to keep predictions centred.
         intercept += Double(peak - templatePre) / envRate
         return true
+    }
+
+    /// A fixed-length description of the averaged tick, aligned on its peak.
+    ///
+    /// Escapements differ in the *spacing* of the sounds inside one beat —
+    /// unlocking, impulse, drop — which is set by the movement's geometry rather
+    /// than by how the watch happens to be sitting on the phone. That makes this
+    /// travel with the watch better than a raw spectrum does, which is mostly
+    /// the phone's own response.
+    static func signature(_ wf: [Double], peak: Int, sampleRate: Double) -> [Double] {
+        let span = Int(0.030 * sampleRate)          // 30 ms of tick
+        let pre = Int(0.004 * sampleRate)
+        guard wf.count > span + pre else { return [] }
+        var raw = [Double](repeating: 0, count: span)
+        for i in 0..<span {
+            raw[i] = wf[((peak - pre + i) % wf.count + wf.count) % wf.count]
+        }
+        // Resample to a fixed length so signatures compare across sample rates.
+        let n = 64
+        var out = [Double](repeating: 0, count: n)
+        for i in 0..<n {
+            let pos = Double(i) * Double(span - 1) / Double(n - 1)
+            let a = Int(pos), b = min(a + 1, span - 1)
+            out[i] = raw[a] + (raw[b] - raw[a]) * (pos - Double(a))
+        }
+        // Scale- and offset-free: loudness and contact pressure aren't identity.
+        var peakValue = 0.0
+        for v in out { peakValue = max(peakValue, abs(v)) }
+        guard peakValue > 0 else { return [] }
+        var mean = 0.0
+        for i in 0..<n { out[i] /= peakValue; mean += out[i] }
+        mean /= Double(n)
+        var norm = 0.0
+        for i in 0..<n { out[i] -= mean; norm += out[i] * out[i] }
+        norm = norm.squareRoot()
+        guard norm > 0 else { return [] }
+        for i in 0..<n { out[i] /= norm }
+        return out
     }
 
     /// Tic-to-toc spacing against half a cycle, from the folded waveform. Found
@@ -971,7 +1016,7 @@ final class Timegrapher {
             matchScore: 0, beatsTracked: 0, elapsedSeconds: elapsed,
             bandLowHz: tracker?.lo ?? 0, bandHighHz: tracker?.hi ?? 0,
             progress: progressHighWater, secondsRemaining: nil, rateSamples: [],
-            qualitySamples: [], retuneCount: retuneCount)
+            qualitySamples: [], retuneCount: retuneCount, signature: [])
     }
 
     private func buildResult(_ t: BeatTracker, elapsed: Double) -> TimegrapherResult {
@@ -1070,6 +1115,7 @@ final class Timegrapher {
             secondsRemaining: remaining,
             rateSamples: samples,
             qualitySamples: quality,
-            retuneCount: retuneCount)
+            retuneCount: retuneCount,
+            signature: t.signature)
     }
 }
