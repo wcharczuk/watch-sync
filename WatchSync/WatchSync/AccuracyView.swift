@@ -72,6 +72,18 @@ struct AccuracyView: View {
     // MARK: Content
 
     private var content: some View {
+        ZStack(alignment: .bottom) {
+            if showsMicHint {
+                MicRadarView(active: viewModel.isMeasuring)
+                    .frame(height: 150)
+                    .transition(.opacity)
+            }
+            measurementStack
+        }
+        .animation(.easeInOut(duration: 0.35), value: showsMicHint)
+    }
+
+    private var measurementStack: some View {
         VStack(spacing: 14) {
             rateReadout
             precisionBar
@@ -86,9 +98,9 @@ struct AccuracyView: View {
             Spacer(minLength: 0)
             actionButtons
             if showsMicHint {
-                MicRadarView(active: viewModel.isMeasuring)
-                    .frame(height: 132)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                // Reserve the space the radar occupies; the radar itself is a
+                // bottom-anchored layer so it can reach the screen edge.
+                Color.clear.frame(height: 124)
             }
         }
         .animation(.easeInOut(duration: 0.35), value: showsMicHint)
@@ -99,7 +111,7 @@ struct AccuracyView: View {
         }
         .padding(.horizontal)
         .padding(.top, 12)
-        .padding(.bottom, 12)
+        .padding(.bottom, 6)
         .onAppear { viewModel.audio.requestPermission() }
         .onDisappear { viewModel.stop() }
         .sheet(isPresented: Binding(
@@ -570,15 +582,42 @@ private struct MicRadarView: View {
     private let ringCount = 3
 
     var body: some View {
+        ZStack(alignment: .bottom) {
+            rings
+            // The label stays inside the safe area while the rings run past it:
+            // the microphone is at the physical edge of the phone, so that is
+            // where the pulse has to look like it comes from.
+            VStack(spacing: 3) {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.accentColor)
+                Text(active ? "Listening here" : "Rest the watch here")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .contentTransition(.opacity)
+            }
+            .padding(.bottom, 2)
+        }
+        .accessibilityElement()
+        .accessibilityLabel(active
+                            ? "Listening at the microphone, bottom edge of the phone"
+                            : "Rest the watch on the microphone at the bottom edge of the phone")
+    }
+
+    private var rings: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
             Canvas { context, size in
                 let period = active ? 1.6 : 2.6
-                let clearZone: CGFloat = 74
+                // Wide enough to clear the glyph and label, which sit inside
+                // the safe area while the rings run past it to the physical
+                // edge — so they are further from the origin than the ring
+                // maths would otherwise assume.
+                let clearZone: CGFloat = 122
                 let t = timeline.date.timeIntervalSinceReferenceDate / period
                 // Rings originate just below the screen edge, so they read as
                 // coming from the hardware rather than from the drawing.
                 let origin = CGPoint(x: size.width / 2, y: size.height + 10)
-                let maxRadius = size.width * 0.75
+                let maxRadius = size.width * 0.95
 
                 for i in 0..<ringCount {
                     let progress = (t + Double(i) / Double(ringCount))
@@ -598,22 +637,7 @@ private struct MicRadarView: View {
                 }
             }
         }
-        .overlay(alignment: .bottom) {
-            VStack(spacing: 3) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.accentColor)
-                Text(active ? "Listening here" : "Rest the watch here")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .contentTransition(.opacity)
-            }
-            .padding(.bottom, 2)
-        }
-        .accessibilityElement()
-        .accessibilityLabel(active
-                            ? "Listening at the microphone, bottom edge of the phone"
-                            : "Rest the watch on the microphone at the bottom edge of the phone")
+        .ignoresSafeArea(edges: .bottom)
     }
 }
 
