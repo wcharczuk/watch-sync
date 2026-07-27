@@ -87,7 +87,7 @@ struct AccuracyView: View {
             actionButtons
             if showsMicHint {
                 MicRadarView(active: viewModel.isMeasuring)
-                    .frame(height: 108)
+                    .frame(height: 132)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
@@ -467,18 +467,41 @@ struct AccuracyView: View {
 
     // MARK: Actions
 
+    /// How many icon buttons sit beside the primary one right now.
+    private var secondaryActionCount: Int {
+        var count = 2      // history and help are always present
+        if let r = viewModel.result, r.rateSecondsPerDay != nil, !r.signature.isEmpty {
+            count += 1     // save
+        }
+#if DEBUG && DIAGNOSTIC_RECORDING
+        if !viewModel.isMeasuring, viewModel.audio.lastRecordingURL != nil {
+            count += 1     // export
+        }
+#endif
+        return count
+    }
+
+    private var crowdedActionRow: Bool { secondaryActionCount > 2 }
+
     private var actionButtons: some View {
         HStack(spacing: 12) {
             Button(action: { viewModel.toggle() }) {
                 HStack(spacing: 8) {
                     Image(systemName: viewModel.isMeasuring
                           ? "stop.circle.fill" : "play.circle.fill")
-                    Text(viewModel.isMeasuring ? "Stop" : "Start measuring")
+                    // Once a reading exists there are up to four icon buttons
+                    // beside this one, leaving too little room for a label — it
+                    // clipped rather than shrank. The symbol carries it.
+                    if !crowdedActionRow {
+                        Text(viewModel.isMeasuring ? "Stop" : "Start measuring")
+                            .lineLimit(1)
+                    }
                 }
                 .font(.system(size: 17, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
             }
+            .accessibilityLabel(viewModel.isMeasuring ? "Stop" : "Start measuring")
             .buttonStyle(.borderedProminent)
             .tint(viewModel.isMeasuring ? .red : .green)
 
@@ -550,32 +573,28 @@ private struct MicRadarView: View {
         TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
             Canvas { context, size in
                 let period = active ? 1.6 : 2.6
-                let clearZone: CGFloat = 78
+                let clearZone: CGFloat = 74
                 let t = timeline.date.timeIntervalSinceReferenceDate / period
                 // Rings originate just below the screen edge, so they read as
                 // coming from the hardware rather than from the drawing.
                 let origin = CGPoint(x: size.width / 2, y: size.height + 10)
-                let maxRadius = size.height * 1.5
+                let maxRadius = size.width * 0.75
 
                 for i in 0..<ringCount {
-                    let phase = (t + Double(i) / Double(ringCount))
+                    let progress = (t + Double(i) / Double(ringCount))
                         .truncatingRemainder(dividingBy: 1)
-                    let radius = phase * maxRadius
-                    // Keep a clear zone around the label and glyph: an arc
-                    // slicing through the caption reads as a rendering fault.
-                    guard radius > 78 else { continue }
-                    // Fade in quickly, out slowly: a ring that appears abruptly
-                    // at full strength looks like a glitch.
-                    // Fade in as the ring emerges from the clear zone and out
-                    // as it travels: a ring appearing abruptly at full strength
-                    // looks like a glitch.
-                    let emerged = min(1, (radius - clearZone) / 40)
-                    let fade = emerged * (1 - phase) * (1 - phase)
+                    // Each ring lives across the band between the clear zone —
+                    // which keeps arcs off the glyph and label — and the edge.
+                    // Deriving the fade from raw phase instead meant rings only
+                    // began to exist past the point where they had already faded
+                    // out: peak opacity worked out at 0.04, which is invisible.
+                    let radius = clearZone + progress * (maxRadius - clearZone)
+                    let fade = min(1, progress * 6) * (1 - progress)
                     let rect = CGRect(x: origin.x - radius, y: origin.y - radius,
                                       width: radius * 2, height: radius * 2)
                     context.stroke(Path(ellipseIn: rect),
-                                   with: .color(.accentColor.opacity(fade * 0.55)),
-                                   style: StrokeStyle(lineWidth: 1.5))
+                                   with: .color(.accentColor.opacity(fade * 0.75)),
+                                   style: StrokeStyle(lineWidth: 2))
                 }
             }
         }
