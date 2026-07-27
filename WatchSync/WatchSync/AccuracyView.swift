@@ -19,6 +19,8 @@ struct AccuracyView: View {
     @State private var showHelp = false
     @State private var showHistory = false
     @State private var saving: TimegrapherResult?
+    /// Brief flourish when the reading first reaches target precision.
+    @State private var settled = false
     @State private var showDetail = false
     @State private var shareItems: [Any]?
 
@@ -90,6 +92,11 @@ struct AccuracyView: View {
             }
         }
         .animation(.easeInOut(duration: 0.35), value: showsMicHint)
+        .onChange(of: stage) { previous, current in
+            guard current == .done, previous != .done else { return }
+            settled = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { settled = false }
+        }
         .padding(.horizontal)
         .padding(.top, 12)
         .padding(.bottom, 12)
@@ -124,13 +131,24 @@ struct AccuracyView: View {
                     .font(.system(size: 14, weight: .semibold))
             }
             .foregroundColor(stageColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(
+                Capsule().fill(stageColor.opacity(stage == .done ? 0.14 : 0.0))
+            )
+            .animation(.easeInOut(duration: 0.3), value: stage)
 
             if let r = viewModel.result, let rate = r.rateSecondsPerDay,
                let unc = r.uncertainty {
-                Text(formattedRate(rate, precision: unc))
+                Text(formattedRate(rate))
                     .font(.system(size: 60, weight: .semibold, design: .rounded))
                     .foregroundColor(rateColor(rate))
                     .contentTransition(.numericText())
+                    // A reading arriving at its target precision is the point of
+                    // the whole exercise; without a beat of motion it just goes
+                    // quietly green.
+                    .scaleEffect(settled ? 1.06 : 1.0)
+                    .animation(.spring(response: 0.45, dampingFraction: 0.5), value: settled)
                 Text(String(format: "s/day   ± %@", formattedUncertainty(unc)))
                     .font(.system(size: 15, design: .monospaced))
                     .foregroundColor(.secondary)
@@ -153,10 +171,16 @@ struct AccuracyView: View {
     /// The published ± is a deliberately conservative *bound*; measured against
     /// recorded sessions the typical error is about a fifth of it. So a tenth is
     /// meaningful well past ±1, and only genuinely coarse readings lose it.
-    private func formattedRate(_ rate: Double, precision: Double) -> String {
-        if precision >= 15 { return String(format: "%+.0f", (rate / 5).rounded() * 5) }
-        if precision >= 5 { return String(format: "%+.0f", rate) }
-        return String(format: "%+.1f", rate)
+    ///
+    /// The view model holds the format steady once it has sharpened, so a ± that
+    /// wobbles across a threshold can't flip the headline between "−3" and
+    /// "−3.1" every half second.
+    private func formattedRate(_ rate: Double) -> String {
+        switch viewModel.rateFormat {
+        case .nearestFive: return String(format: "%+.0f", (rate / 5).rounded() * 5)
+        case .whole: return String(format: "%+.0f", rate)
+        case .tenth: return String(format: "%+.1f", rate)
+        }
     }
 
     private func formattedUncertainty(_ unc: Double) -> String {
@@ -680,6 +704,22 @@ final class TimegrapherViewModel: ObservableObject {
     /// nil = auto-detect the beat rate.
     @Published var selectedBPH: Int?
 
+    /// How precisely the headline is written. Only ever sharpens during a
+    /// measurement: the ± generally shrinks, but it can wobble, and a headline
+    /// that flips between "−3" and "−3.1" looks unstable even when the reading
+    /// isn't.
+    enum RateFormat: Int, Comparable {
+        case nearestFive, whole, tenth
+        static func < (a: RateFormat, b: RateFormat) -> Bool { a.rawValue < b.rawValue }
+
+        init(uncertainty: Double) {
+            if uncertainty >= 15 { self = .nearestFive }
+            else if uncertainty >= 5 { self = .whole }
+            else { self = .tenth }
+        }
+    }
+    @Published private(set) var rateFormat: RateFormat = .nearestFive
+
     let audio = AudioCaptureManager()
     private let analyzer = Timegrapher()
     private let analysisQueue = DispatchQueue(label: "timegrapher.analysis", qos: .userInitiated)
@@ -727,6 +767,7 @@ final class TimegrapherViewModel: ObservableObject {
             return
         }
         result = nil
+        rateFormat = .nearestFive
         isMeasuring = true
         let bph = selectedBPH
         audio.start(prepare: { [weak self] sampleRate in
@@ -748,6 +789,9 @@ final class TimegrapherViewModel: ObservableObject {
                 guard self.isMeasuring else { return }
                 let previous = self.result?.stage
                 self.result = r
+                if let unc = r.uncertainty {
+                    self.rateFormat = max(self.rateFormat, RateFormat(uncertainty: unc))
+                }
                 self.hapticsForStageChange(from: previous, to: r.stage)
             }
         }

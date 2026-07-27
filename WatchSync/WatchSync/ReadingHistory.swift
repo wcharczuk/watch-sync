@@ -231,9 +231,7 @@ struct HistoryView: View {
         NavigationStack {
             Group {
                 if store.readings.isEmpty {
-                    ContentUnavailableView("No readings yet",
-                                           systemImage: "clock.arrow.circlepath",
-                                           description: Text("Save a reading and it will appear here, so you can watch a rate change over weeks rather than guess from one measurement."))
+                    EmptyHistoryView()
                 } else {
                     List {
                         ForEach(store.knownWatches, id: \.self) { name in
@@ -262,6 +260,37 @@ struct HistoryView: View {
                 }
             }
         }
+    }
+}
+
+/// What history is for, shown before there is any.
+///
+/// Opening this before saving anything used to be a dead end. The useful thing
+/// to say isn't "nothing here" — it's why a second reading is worth taking.
+private struct EmptyHistoryView: View {
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(.system(size: 44, weight: .light))
+                .foregroundColor(.accentColor)
+            Text("No readings saved yet")
+                .font(.title3.weight(.semibold))
+            VStack(spacing: 10) {
+                Text("A single reading tells you the rate. A series tells you whether it's **changing** — which is the part worth knowing, and the part no one measurement can show.")
+                Text("Measure a watch, then tap the save button next to Start. Give it a name and the position it was in, and it will appear here as a trend.")
+            }
+            .font(.system(size: 14))
+            .foregroundColor(.secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 32)
+
+            Label("Readings stay on this phone", systemImage: "lock")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .padding(.top, 4)
+        }
+        .padding()
     }
 }
 
