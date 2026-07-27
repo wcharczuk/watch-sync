@@ -83,7 +83,13 @@ struct AccuracyView: View {
             if showDetail { detailLine }
             Spacer(minLength: 0)
             actionButtons
+            if showsMicHint {
+                MicRadarView(active: viewModel.isMeasuring)
+                    .frame(height: 108)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
+        .animation(.easeInOut(duration: 0.35), value: showsMicHint)
         .padding(.horizontal)
         .padding(.top, 12)
         .padding(.bottom, 12)
@@ -95,6 +101,12 @@ struct AccuracyView: View {
         )) {
             if let items = shareItems { ShareSheet(items: items) }
         }
+    }
+
+    /// Show the microphone hint until there is a reading: that is precisely the
+    /// window in which the user is still working out where to hold the watch.
+    private var showsMicHint: Bool {
+        viewModel.result?.rateSecondsPerDay == nil
     }
 
     private var stage: MeasurementStage {
@@ -494,6 +506,74 @@ struct AccuracyView: View {
     }
 }
 
+// MARK: - Microphone hint
+
+/// Sonar rings rising from the bottom edge of the phone, where the microphone
+/// actually is.
+///
+/// Nothing on screen previously told anyone *where* to put the watch, and the
+/// mic is the one part of this that depends on physical placement — a sentence
+/// of help text is easy to skip, a pulse pointing at the bottom edge is not.
+/// The rings quicken once listening starts, so the hint doubles as a sign that
+/// the app is live.
+private struct MicRadarView: View {
+    /// True once audio is running: the pulse speeds up to show it's listening.
+    let active: Bool
+
+    private let ringCount = 3
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
+            Canvas { context, size in
+                let period = active ? 1.6 : 2.6
+                let clearZone: CGFloat = 78
+                let t = timeline.date.timeIntervalSinceReferenceDate / period
+                // Rings originate just below the screen edge, so they read as
+                // coming from the hardware rather than from the drawing.
+                let origin = CGPoint(x: size.width / 2, y: size.height + 10)
+                let maxRadius = size.height * 1.5
+
+                for i in 0..<ringCount {
+                    let phase = (t + Double(i) / Double(ringCount))
+                        .truncatingRemainder(dividingBy: 1)
+                    let radius = phase * maxRadius
+                    // Keep a clear zone around the label and glyph: an arc
+                    // slicing through the caption reads as a rendering fault.
+                    guard radius > 78 else { continue }
+                    // Fade in quickly, out slowly: a ring that appears abruptly
+                    // at full strength looks like a glitch.
+                    // Fade in as the ring emerges from the clear zone and out
+                    // as it travels: a ring appearing abruptly at full strength
+                    // looks like a glitch.
+                    let emerged = min(1, (radius - clearZone) / 40)
+                    let fade = emerged * (1 - phase) * (1 - phase)
+                    let rect = CGRect(x: origin.x - radius, y: origin.y - radius,
+                                      width: radius * 2, height: radius * 2)
+                    context.stroke(Path(ellipseIn: rect),
+                                   with: .color(.accentColor.opacity(fade * 0.55)),
+                                   style: StrokeStyle(lineWidth: 1.5))
+                }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            VStack(spacing: 3) {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.accentColor)
+                Text(active ? "Listening here" : "Rest the watch here")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .contentTransition(.opacity)
+            }
+            .padding(.bottom, 2)
+        }
+        .accessibilityElement()
+        .accessibilityLabel(active
+                            ? "Listening at the microphone, bottom edge of the phone"
+                            : "Rest the watch on the microphone at the bottom edge of the phone")
+    }
+}
+
 // MARK: - Rate axis
 
 /// One axis, in seconds per day: where the reading sits, and how well we know it.
@@ -620,6 +700,25 @@ final class TimegrapherViewModel: ObservableObject {
 
     func toggle() { isMeasuring ? stop() : start() }
 
+    /// Confirm the two moments worth feeling: the tick being found, and the
+    /// reading reaching its target precision. You hold the watch against the
+    /// phone to measure, which often puts the screen out of view — a reading
+    /// that finishes silently finishes unnoticed.
+    private func hapticsForStageChange(from old: MeasurementStage?,
+                                       to new: MeasurementStage) {
+        guard old != new else { return }
+        switch new {
+        case .locking where old == .listening || old == .tuning:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        case .done where old != .done:
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        case .noSignal where old != .noSignal:
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        default:
+            break
+        }
+    }
+
     func setManualBPH(_ bph: Int?) { analyzer.setManualBPH(bph) }
 
     func start() {
@@ -647,7 +746,9 @@ final class TimegrapherViewModel: ObservableObject {
             let r = self.analyzer.analyze()
             DispatchQueue.main.async {
                 guard self.isMeasuring else { return }
+                let previous = self.result?.stage
                 self.result = r
+                self.hapticsForStageChange(from: previous, to: r.stage)
             }
         }
         t.resume()
