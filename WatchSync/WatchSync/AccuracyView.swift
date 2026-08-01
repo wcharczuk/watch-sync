@@ -75,7 +75,7 @@ struct AccuracyView: View {
         ZStack(alignment: .bottom) {
             if showsMicHint {
                 MicRadarView(active: viewModel.isMeasuring)
-                    .frame(height: 150)
+                    .frame(height: 112)
                     .transition(.opacity)
             }
             measurementStack
@@ -100,7 +100,7 @@ struct AccuracyView: View {
             if showsMicHint {
                 // Reserve the space the radar occupies; the radar itself is a
                 // bottom-anchored layer so it can reach the screen edge.
-                Color.clear.frame(height: 124)
+                Color.clear.frame(height: 96)
             }
         }
         .animation(.easeInOut(duration: 0.35), value: showsMicHint)
@@ -479,82 +479,69 @@ struct AccuracyView: View {
 
     // MARK: Actions
 
-    /// How many icon buttons sit beside the primary one right now.
-    private var secondaryActionCount: Int {
-        var count = 2      // history and help are always present
-        if let r = viewModel.result, r.rateSecondsPerDay != nil, !r.signature.isEmpty {
-            count += 1     // save
-        }
-#if DEBUG && DIAGNOSTIC_RECORDING
-        if !viewModel.isMeasuring, viewModel.audio.lastRecordingURL != nil {
-            count += 1     // export
-        }
-#endif
-        return count
-    }
-
-    private var crowdedActionRow: Bool { secondaryActionCount > 2 }
-
+    /// Start/Stop, the contextual Save, and everything else behind a menu.
+    ///
+    /// A row of four or five bare glyphs asked people to guess what a download
+    /// arrow or a clock-with-an-arrow meant, and the primary button lost its
+    /// label to make room for them. Two labelled buttons and one menu is both
+    /// clearer and roomier.
     private var actionButtons: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Button(action: { viewModel.toggle() }) {
-                HStack(spacing: 8) {
-                    Image(systemName: viewModel.isMeasuring
-                          ? "stop.circle.fill" : "play.circle.fill")
-                    // Once a reading exists there are up to four icon buttons
-                    // beside this one, leaving too little room for a label — it
-                    // clipped rather than shrank. The symbol carries it.
-                    if !crowdedActionRow {
-                        Text(viewModel.isMeasuring ? "Stop" : "Start measuring")
-                            .lineLimit(1)
-                    }
-                }
-                .font(.system(size: 17, weight: .semibold))
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
+                Label(viewModel.isMeasuring ? "Stop" : "Start",
+                      systemImage: viewModel.isMeasuring ? "stop.fill" : "play.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
             }
-            .accessibilityLabel(viewModel.isMeasuring ? "Stop" : "Start measuring")
             .buttonStyle(.borderedProminent)
             .tint(viewModel.isMeasuring ? .red : .green)
 
-#if DEBUG && DIAGNOSTIC_RECORDING
-            if !viewModel.isMeasuring, viewModel.audio.lastRecordingURL != nil {
-                Button(action: { shareItems = viewModel.exportItems() }) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 22, weight: .medium))
-                        .frame(width: 50, height: 50)
-                }
-                .buttonStyle(.bordered)
-                .tint(.blue)
-            }
-#endif
-
             if let r = viewModel.result, r.rateSecondsPerDay != nil, !r.signature.isEmpty {
                 Button(action: { saving = r }) {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.system(size: 22, weight: .medium))
-                        .frame(width: 50, height: 50)
+                    Label("Save", systemImage: "square.and.arrow.down")
+                        .font(.system(size: 17, weight: .medium))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
                 }
                 .buttonStyle(.bordered)
                 .tint(.accentColor)
+                .transition(.opacity.combined(with: .scale))
             }
 
-            Button(action: { showHistory = true }) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 22, weight: .medium))
-                    .frame(width: 50, height: 50)
+            Menu {
+                Button {
+                    showHistory = true
+                } label: {
+                    Label("Reading history", systemImage: "clock.arrow.circlepath")
+                }
+                Button {
+                    showHelp = true
+                } label: {
+                    Label("How to measure", systemImage: "questionmark.circle")
+                }
+#if DEBUG && DIAGNOSTIC_RECORDING
+                if !viewModel.isMeasuring, viewModel.audio.lastRecordingURL != nil {
+                    Divider()
+                    Button {
+                        shareItems = viewModel.exportItems()
+                    } label: {
+                        Label("Export recording", systemImage: "square.and.arrow.up")
+                    }
+                }
+#endif
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 20, weight: .medium))
+                    .frame(width: 52, height: 50)
             }
             .buttonStyle(.bordered)
             .tint(.secondary)
-
-            Button(action: { showHelp = true }) {
-                Image(systemName: "questionmark.circle")
-                    .font(.system(size: 22, weight: .medium))
-                    .frame(width: 50, height: 50)
-            }
-            .buttonStyle(.bordered)
-            .tint(.secondary)
+            .accessibilityLabel("More options")
         }
+        .animation(.easeInOut(duration: 0.25), value: viewModel.result?.rateSecondsPerDay != nil)
     }
 
     private func rateColor(_ rate: Double) -> Color {
@@ -584,19 +571,14 @@ private struct MicRadarView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             rings
-            // The label stays inside the safe area while the rings run past it:
-            // the microphone is at the physical edge of the phone, so that is
-            // where the pulse has to look like it comes from.
-            VStack(spacing: 3) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.accentColor)
-                Text(active ? "Listening here" : "Rest the watch here")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .contentTransition(.opacity)
-            }
-            .padding(.bottom, 2)
+            // Just the glyph, marking the spot. A caption here forced the rings
+            // to start well outside it to avoid slicing through the words, which
+            // is what stopped the pulse looking like it came from the microphone
+            // at all. The instruction already sits in the guidance line above.
+            Image(systemName: "mic.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.accentColor)
+                .padding(.bottom, 2)
         }
         .accessibilityElement()
         .accessibilityLabel(active
@@ -607,28 +589,32 @@ private struct MicRadarView: View {
     private var rings: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
             Canvas { context, size in
-                let period = active ? 1.6 : 2.6
-                // Wide enough to clear the glyph and label, which sit inside
-                // the safe area while the rings run past it to the physical
-                // edge — so they are further from the origin than the ring
-                // maths would otherwise assume.
-                let clearZone: CGFloat = 122
+                // Slow: a quick pulse reads as an alert. This should feel like
+                // sonar — unhurried, and repeating.
+                let period = active ? 2.8 : 4.2
+                // Only as wide as the glyph, so rings appear to leave the
+                // microphone rather than some circle drawn around it.
+                let clearZone: CGFloat = 46
                 let t = timeline.date.timeIntervalSinceReferenceDate / period
                 // Rings originate just below the screen edge, so they read as
                 // coming from the hardware rather than from the drawing.
                 let origin = CGPoint(x: size.width / 2, y: size.height + 10)
-                let maxRadius = size.width * 0.95
+                // Kept small and low: the microphone is a point at the bottom
+                // edge, and rings sweeping halfway up the screen suggest a much
+                // vaguer target than the real one.
+                let maxRadius: CGFloat = 168
 
                 for i in 0..<ringCount {
                     let progress = (t + Double(i) / Double(ringCount))
                         .truncatingRemainder(dividingBy: 1)
-                    // Each ring lives across the band between the clear zone —
-                    // which keeps arcs off the glyph and label — and the edge.
-                    // Deriving the fade from raw phase instead meant rings only
-                    // began to exist past the point where they had already faded
-                    // out: peak opacity worked out at 0.04, which is invisible.
-                    let radius = clearZone + progress * (maxRadius - clearZone)
-                    let fade = min(1, progress * 6) * (1 - progress)
+                    // Decelerating: quick off the microphone, then drifting.
+                    // Constant speed looks mechanical and gives the ring no
+                    // sense of losing energy as it travels.
+                    let eased = 1 - pow(1 - progress, 2)
+                    let radius = clearZone + eased * (maxRadius - clearZone)
+                    // Cubed falloff, so it thins to nothing well before the
+                    // edge rather than being cut off by the controls above.
+                    let fade = min(1, progress * 8) * pow(1 - progress, 3)
                     let rect = CGRect(x: origin.x - radius, y: origin.y - radius,
                                       width: radius * 2, height: radius * 2)
                     context.stroke(Path(ellipseIn: rect),

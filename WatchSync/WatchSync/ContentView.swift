@@ -11,21 +11,32 @@ struct ContentView: View {
     @State private var lastAppliedDelta: Int = 0
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("Mode", selection: $mode) {
-                ForEach(AppMode.allCases, id: \.self) { m in
-                    Text(m.rawValue).tag(m)
+        ZStack {
+            VStack(spacing: 0) {
+                Picker("Mode", selection: $mode) {
+                    ForEach(AppMode.allCases, id: \.self) { m in
+                        Text(m.rawValue).tag(m)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.top, 8)
+
+                switch mode {
+                case .sync:
+                    syncView
+                case .accuracy:
+                    AccuracyView()
                 }
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.top, 8)
 
-            switch mode {
-            case .sync:
-                syncView
-            case .accuracy:
-                AccuracyView()
+            // Above everything, edge to edge. A sync flash you have to be
+            // looking directly at defeats the point — it should be catchable
+            // from the corner of the eye while you're watching the watch, not
+            // the phone. Living inside the sync view left it behind the clock
+            // and stopped at the mode picker.
+            if mode == .sync {
+                SyncFlashView(hashMarkSeconds: hashMarkSeconds)
             }
         }
     }
@@ -34,27 +45,7 @@ struct ContentView: View {
         TimelineView(.animation(minimumInterval: 0.01)) { timeline in
             let currentTime = timeline.date
             let countdown = calculateCountdown(currentTime: currentTime)
-            // Calculate flash opacity:
-            // - Full opacity (1.0) during 250ms before reaching hash mark
-            // - Fade out from 1.0 to 0.0 during 100ms after passing hash mark
-            let fadeOutFrom = 60.0
-            let flashOpacity: Double = {
-                if countdown <= 0.25 {
-                    return 1.0 // 250ms before: full flash
-                } else if countdown >= fadeOutFrom {
-                    return (countdown - fadeOutFrom) * 10
-                } else {
-                    return 0.0
-                }
-            }()
-
-            ZStack {
-                // Red flash overlay with fade
-                Color.white
-                    .ignoresSafeArea()
-                    .opacity(flashOpacity)
-
-                VStack(spacing: 40) {
+            VStack(spacing: 40) {
                 Spacer()
 
                 AnalogClockView(
@@ -79,7 +70,6 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.bottom, 20)
-                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -112,16 +102,7 @@ struct ContentView: View {
     }
 
     private func calculateCountdown(currentTime: Date) -> Double {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.second, .nanosecond], from: currentTime)
-        let currentSeconds = Double(components.second ?? 0) + Double(components.nanosecond ?? 0) / 1_000_000_000
-
-        var diff = hashMarkSeconds - currentSeconds
-        if diff <= 0 {
-            diff += 60.0
-        }
-
-        return diff
+        secondsUntilHashMark(at: currentTime, hashMarkSeconds: hashMarkSeconds)
     }
 
     private func formatCountdown(_ seconds: Double) -> String {
@@ -129,6 +110,45 @@ struct ContentView: View {
         let secs = totalMilliseconds / 1000
         let millis = totalMilliseconds % 1000
         return String(format: "%02d.%03d", secs, millis)
+    }
+}
+
+/// Seconds until the sweeping second hand next reaches the hash mark.
+/// Always in (0, 60]: at the instant it lands, the next pass is a full minute away.
+func secondsUntilHashMark(at date: Date, hashMarkSeconds: Double) -> Double {
+    let components = Calendar.current.dateComponents([.second, .nanosecond], from: date)
+    let currentSeconds = Double(components.second ?? 0)
+        + Double(components.nanosecond ?? 0) / 1_000_000_000
+    var diff = hashMarkSeconds - currentSeconds
+    if diff <= 0 { diff += 60.0 }
+    return diff
+}
+
+/// Full-screen white flash as the second hand reaches the hash mark.
+private struct SyncFlashView: View {
+    let hashMarkSeconds: Double
+
+    /// Solid for the last 250 ms of the approach, then a 100 ms fade once it
+    /// passes.
+    private func opacity(at date: Date) -> Double {
+        let countdown = secondsUntilHashMark(at: date, hashMarkSeconds: hashMarkSeconds)
+        if countdown <= 0.25 { return 1.0 }
+        // Just after the mark the countdown has wrapped to just under 60, so the
+        // fade lives at the top of the range. Testing against 60.0 — the value
+        // the countdown only touches at the exact instant of the pass — meant
+        // the branch never ran and the flash cut out instantly instead.
+        let fadeStart = 60.0 - 0.1
+        if countdown >= fadeStart { return (countdown - fadeStart) * 10 }
+        return 0.0
+    }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.01)) { timeline in
+            Color.white
+                .opacity(opacity(at: timeline.date))
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+        }
     }
 }
 
