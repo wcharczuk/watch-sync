@@ -576,9 +576,9 @@ private struct MicRadarView: View {
             // is what stopped the pulse looking like it came from the microphone
             // at all. The instruction already sits in the guidance line above.
             Image(systemName: "mic.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.accentColor)
-                .padding(.bottom, 2)
+                .padding(.bottom, 1)
         }
         .accessibilityElement()
         .accessibilityLabel(active
@@ -592,13 +592,17 @@ private struct MicRadarView: View {
                 // Slow: a quick pulse reads as an alert. This should feel like
                 // sonar — unhurried, and repeating.
                 let period = active ? 2.8 : 4.2
-                // Only as wide as the glyph, so rings appear to leave the
-                // microphone rather than some circle drawn around it.
-                let clearZone: CGFloat = 46
+                // Barely anything: rings should be born at the microphone and
+                // grow, not appear part-way out already large.
+                let clearZone: CGFloat = 12
                 let t = timeline.date.timeIntervalSinceReferenceDate / period
                 // Rings originate just below the screen edge, so they read as
                 // coming from the hardware rather than from the drawing.
-                let origin = CGPoint(x: size.width / 2, y: size.height + 10)
+                // Sitting the origin below the screen edge hid the first part
+                // of every ring's life, so the smallest one that could actually
+                // be seen was already fairly wide. On the edge, a ring is
+                // visible from the moment it exists.
+                let origin = CGPoint(x: size.width / 2, y: size.height)
                 // Kept small and low: the microphone is a point at the bottom
                 // edge, and rings sweeping halfway up the screen suggest a much
                 // vaguer target than the real one.
