@@ -1,0 +1,733 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024" width="1024" height="1024"><defs>
+    <radialGradient id="ground" cx="34%" cy="24%" r="88%">
+      <stop offset="0%" stop-color="#2b2e48"></stop>
+      <stop offset="58%" stop-color="#191b2c"></stop>
+      <stop offset="100%" stop-color="#0b0c15"></stop>
+    </radialGradient>
+    <linearGradient id="steel" x1="12%" y1="0%" x2="88%" y2="100%">
+      <stop offset="0%" stop-color="#8e91a8"></stop>
+      <stop offset="18%" stop-color="#e3e5ef"></stop>
+      <stop offset="38%" stop-color="#767a92"></stop>
+      <stop offset="55%" stop-color="#c9ccdb"></stop>
+      <stop offset="74%" stop-color="#5f6379"></stop>
+      <stop offset="100%" stop-color="#9ea2b8"></stop>
+    </linearGradient>
+    <radialGradient id="face" cx="36%" cy="26%" r="86%">
+      <stop offset="0%" stop-color="#31344f"></stop>
+      <stop offset="62%" stop-color="#1b1d2e"></stop>
+      <stop offset="100%" stop-color="#0d0e18"></stop>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0%" y1="0%" x2="40%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.30"></stop>
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.06"></stop>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
+    </linearGradient>
+    <linearGradient id="hand" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f2f3f8"></stop>
+      <stop offset="52%" stop-color="#c6c9d8"></stop>
+      <stop offset="100%" stop-color="#8b8fa4"></stop>
+    </linearGradient>
+    <linearGradient id="glassPane" x1="8%" y1="0%" x2="92%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"></stop>
+      <stop offset="46%" stop-color="#ffffff" stop-opacity="0.05"></stop>
+      <stop offset="47%" stop-color="#ffffff" stop-opacity="0.11"></stop>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.02"></stop>
+    </linearGradient>
+    <filter id="accGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="18" result="b"></feGaussianBlur>
+      <feMerge><feMergeNode in="b"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+    </filter>
+    <clipPath id="faceClip"><circle cx="512" cy="512" r="428"></circle></clipPath>
+
+    <symbol id="ic-a" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#9b9fb4" stroke-width="22" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#e6e7ef" stroke-width="42" stroke-dasharray="11 187.97" stroke-dashoffset="5.5"></circle>
+        <circle cx="512" cy="512" r="330" fill="none" stroke="#ffffff" stroke-opacity="0.05" stroke-width="1.5"></circle>
+        <g transform="rotate(304 512 512)"><rect x="495" y="268" width="34" height="278" rx="17" fill="url(#hand)"></rect></g>
+        <g transform="rotate(56 512 512)"><rect x="500" y="168" width="24" height="378" rx="12" fill="url(#hand)"></rect></g>
+        <g transform="rotate(206 512 512)" filter="url(#accGlow)">
+          <rect x="506" y="140" width="12" height="470" rx="6" fill="#9184d9"></rect>
+          <circle cx="512" cy="596" r="30" fill="#9184d9"></circle>
+        </g>
+        <circle cx="512" cy="512" r="24" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="10" fill="#14151f"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-b" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <path d="M 201.9 399.1 A 330 330 0 0 1 822.1 399.1" fill="none" stroke="#9b9fb4" stroke-width="30" stroke-dasharray="6 51.6"></path>
+        <path d="M 201.9 399.1 A 330 330 0 0 1 822.1 399.1" fill="none" stroke="#9184d9" stroke-opacity="0.22" stroke-width="4"></path>
+        <g transform="rotate(-70 512 512)"><rect x="503" y="140" width="18" height="66" rx="9" fill="#dfe1ec"></rect></g>
+        <g transform="rotate(70 512 512)"><rect x="503" y="140" width="18" height="66" rx="9" fill="#dfe1ec"></rect></g>
+        <rect x="500" y="132" width="24" height="84" rx="12" fill="#9184d9"></rect>
+        <g stroke="#8f93a8" stroke-width="20" stroke-linecap="round">
+          <line x1="182" y1="512" x2="266" y2="512"></line>
+          <line x1="758" y1="512" x2="842" y2="512"></line>
+          <line x1="800" y1="470" x2="800" y2="554"></line>
+        </g>
+        <g transform="rotate(14 512 512)" filter="url(#accGlow)">
+          <path d="M 512 196 L 540 500 L 484 500 Z" fill="#9184d9"></path>
+        </g>
+        <circle cx="512" cy="512" r="150" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="2"></circle>
+        <circle cx="512" cy="512" r="42" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="20" fill="#14151f"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-c" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="466" fill="none" stroke="#9184d9" stroke-opacity="0.18" stroke-width="10"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="url(#steel)" stroke-width="18"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="372" fill="none" stroke="#9498ad" stroke-width="18" stroke-dasharray="4 35.0" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="366" fill="none" stroke="#e6e7ef" stroke-width="34" stroke-dasharray="10 181.6" stroke-dashoffset="5"></circle>
+        <path d="M 512 190 A 322 322 0 0 1 738 780" fill="none" stroke="#9184d9" stroke-width="26" stroke-linecap="round" opacity="0.95" filter="url(#accGlow)"></path>
+        <g transform="rotate(146 512 512)">
+          <rect x="505" y="150" width="14" height="400" rx="7" fill="#9184d9" filter="url(#accGlow)"></rect>
+        </g>
+        <circle cx="512" cy="512" r="26" fill="#9184d9"></circle>
+        <circle cx="512" cy="512" r="10" fill="#12131d"></circle>
+        <g opacity="0.9">
+          <path d="M -40 700 L 1064 300 L 1064 620 L -40 1064 Z" fill="url(#glassPane)"></path>
+        </g>
+        <ellipse cx="352" cy="300" rx="356" ry="270" transform="rotate(-28 352 300)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.2" stroke-width="3"></circle>
+    </symbol>
+    <clipPath id="subClip"><circle cx="512" cy="700" r="102"></circle></clipPath>
+
+    <symbol id="ic-2a" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="20" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <rect x="456" y="34" width="112" height="76" rx="14" fill="#0c0d16"></rect>
+      <rect x="456" y="34" width="112" height="76" rx="14" fill="none" stroke="#000000" stroke-opacity="0.5" stroke-width="4"></rect>
+      <path d="M 512 46 L 552 98 L 472 98 Z" fill="#9184d9" filter="url(#accGlow)"></path>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#9b9fb4" stroke-width="22" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#e6e7ef" stroke-width="42" stroke-dasharray="11 187.97" stroke-dashoffset="5.5"></circle>
+
+        <circle cx="512" cy="700" r="102" fill="#07080e"></circle>
+        <g clip-path="url(#subClip)">
+          <circle cx="512" cy="712" r="112" fill="#0b0c14"></circle>
+          <g fill="#c8cbd8">
+            <g transform="rotate(-58 512 700)"><rect x="503" y="612" width="18" height="42" rx="4"></rect></g>
+            <g transform="rotate(-29 512 700)"><rect x="504" y="616" width="16" height="34" rx="4"></rect></g>
+            <g transform="rotate(29 512 700)"><rect x="504" y="616" width="16" height="34" rx="4"></rect></g>
+            <g transform="rotate(58 512 700)"><rect x="503" y="612" width="18" height="42" rx="4"></rect></g>
+          </g>
+          <rect x="502" y="606" width="20" height="52" rx="6" fill="#9184d9"></rect>
+          <g transform="rotate(17 512 700)" filter="url(#accGlow)"><path d="M 512 620 L 524 696 L 500 696 Z" fill="#9184d9"></path></g>
+          <circle cx="512" cy="700" r="15" fill="#eceef5"></circle>
+        </g>
+        <circle cx="512" cy="700" r="102" fill="none" stroke="#cfd2e0" stroke-opacity="0.55" stroke-width="6"></circle>
+        <circle cx="512" cy="700" r="108" fill="none" stroke="#000000" stroke-opacity="0.55" stroke-width="6"></circle>
+
+        <g transform="rotate(303 512 512)"><rect x="496" y="298" width="32" height="248" rx="16" fill="url(#hand)"></rect></g>
+        <g transform="rotate(57 512 512)"><rect x="501" y="212" width="22" height="334" rx="11" fill="url(#hand)"></rect></g>
+        <g transform="rotate(21 512 512)" filter="url(#accGlow)">
+          <rect x="507" y="150" width="10" height="416" rx="5" fill="#9184d9"></rect>
+          <circle cx="512" cy="556" r="20" fill="#9184d9"></circle>
+        </g>
+        <circle cx="512" cy="512" r="22" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="9" fill="#14151f"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-2b" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <path d="M 320.1 100.6 A 454 454 0 0 1 703.9 100.6" fill="none" stroke="#9184d9" stroke-width="22" opacity="0.95" filter="url(#accGlow)"></path>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#9b9fb4" stroke-width="22" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#e6e7ef" stroke-width="42" stroke-dasharray="11 187.97" stroke-dashoffset="5.5"></circle>
+        <g transform="translate(0 148)">
+          <line x1="372" y1="512" x2="652" y2="512" stroke="#6e7288" stroke-width="6" stroke-linecap="round"></line>
+          <line x1="372" y1="512" x2="652" y2="512" stroke="#9b9fb4" stroke-width="34" stroke-dasharray="5 50"></line>
+          <line x1="512" y1="486" x2="512" y2="538" stroke="#e6e7ef" stroke-width="8" stroke-linecap="round"></line>
+          <circle cx="562" cy="512" r="21" fill="#9184d9" filter="url(#accGlow)"></circle>
+        </g>
+        <g transform="rotate(303 512 512)"><rect x="496" y="298" width="32" height="248" rx="16" fill="url(#hand)"></rect></g>
+        <g transform="rotate(57 512 512)"><rect x="501" y="206" width="22" height="340" rx="11" fill="url(#hand)"></rect></g>
+        <g transform="rotate(18 512 512)" filter="url(#accGlow)">
+          <rect x="507" y="146" width="10" height="450" rx="5" fill="#9184d9"></rect>
+          <circle cx="512" cy="586" r="26" fill="#9184d9"></circle>
+        </g>
+        <circle cx="512" cy="512" r="22" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="9" fill="#14151f"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+    <symbol id="ic-3a" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <path d="M 320.1 100.6 A 454 454 0 0 1 703.9 100.6" fill="none" stroke="#9184d9" stroke-width="22" opacity="0.95" filter="url(#accGlow)"></path>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#83879c" stroke-width="18" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="380" fill="none" stroke="#c9ccda" stroke-width="34" stroke-dasharray="10 188.97" stroke-dashoffset="5"></circle>
+
+        <g transform="rotate(303 512 512)"><rect x="498" y="330" width="28" height="212" rx="14" fill="#a7abbd"></rect></g>
+        <g transform="rotate(57 512 512)"><rect x="503" y="256" width="18" height="286" rx="9" fill="#a7abbd"></rect></g>
+        <g transform="rotate(21 512 512)"><rect x="508" y="192" width="8" height="368" rx="4" fill="#d3cffa" opacity="0.85"></rect></g>
+        <circle cx="512" cy="512" r="18" fill="#dfe2ec"></circle>
+        <circle cx="512" cy="512" r="7" fill="#14151f"></circle>
+
+        <rect x="228" y="588" width="568" height="150" rx="28" fill="#07080e" opacity="0.92"></rect>
+        <rect x="228" y="588" width="568" height="150" rx="28" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="3"></rect>
+        <line x1="264" y1="678" x2="760" y2="678" stroke="#5d6175" stroke-width="5"></line>
+        <line x1="264" y1="666" x2="760" y2="666" stroke="#b5b9c8" stroke-width="34" stroke-dasharray="7 42.6"></line>
+        <line x1="512" y1="622" x2="512" y2="694" stroke="#eceef5" stroke-width="10" stroke-linecap="round"></line>
+        <g stroke="#8f93a8" stroke-width="12" stroke-linecap="round">
+          <line x1="272" y1="726" x2="316" y2="726"></line>
+          <line x1="708" y1="726" x2="752" y2="726"></line>
+          <line x1="730" y1="704" x2="730" y2="748"></line>
+        </g>
+        <g filter="url(#accGlow)">
+          <path d="M 606 604 L 638 646 L 574 646 Z" fill="#9184d9"></path>
+          <rect x="598" y="640" width="16" height="76" rx="8" fill="#9184d9"></rect>
+        </g>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-3b" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <path d="M 320.1 100.6 A 454 454 0 0 1 703.9 100.6" fill="none" stroke="#9184d9" stroke-width="22" opacity="0.95" filter="url(#accGlow)"></path>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#83879c" stroke-width="18" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="380" fill="none" stroke="#c9ccda" stroke-width="34" stroke-dasharray="10 188.97" stroke-dashoffset="5"></circle>
+
+        <g transform="rotate(303 512 512)"><rect x="498" y="336" width="28" height="200" rx="14" fill="#a7abbd"></rect></g>
+        <g transform="rotate(57 512 512)"><rect x="503" y="262" width="18" height="274" rx="9" fill="#a7abbd"></rect></g>
+        <g transform="rotate(21 512 512)"><rect x="508" y="198" width="8" height="352" rx="4" fill="#d3cffa" opacity="0.85"></rect></g>
+        <circle cx="512" cy="512" r="18" fill="#dfe2ec"></circle>
+        <circle cx="512" cy="512" r="7" fill="#14151f"></circle>
+
+        <path d="M 210 570 A 400 400 0 0 0 814 570" fill="none" stroke="#07080e" stroke-width="118" stroke-linecap="round" opacity="0.9"></path>
+        <path d="M 210 570 A 400 400 0 0 0 814 570" fill="none" stroke="#5d6175" stroke-width="5"></path>
+        <path d="M 210 558 A 400 400 0 0 0 814 558" fill="none" stroke="#b5b9c8" stroke-width="36" stroke-dasharray="7 41.9"></path>
+        <line x1="512" y1="662" x2="512" y2="746" stroke="#eceef5" stroke-width="10" stroke-linecap="round"></line>
+        <g filter="url(#accGlow)">
+          <circle cx="649" cy="684" r="30" fill="#9184d9"></circle>
+          <path d="M 649 626 L 673 664 L 625 664 Z" fill="#9184d9"></path>
+        </g>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+    <symbol id="ic-4a" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#83879c" stroke-width="20" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#d6d9e4" stroke-width="42" stroke-dasharray="10 125.31" stroke-dashoffset="5"></circle>
+        <rect x="498" y="86" width="28" height="96" rx="6" fill="#f2f3f8"></rect>
+
+        <g transform="rotate(303 512 512)"><rect x="500" y="360" width="24" height="180" rx="12" fill="#464a5e"></rect></g>
+        <g transform="rotate(57 512 512)"><rect x="504" y="296" width="16" height="244" rx="8" fill="#464a5e"></rect></g>
+
+        <path d="M 512 162 A 350 350 0 0 1 746 251" fill="none" stroke="#9184d9" stroke-width="44" stroke-linecap="butt" filter="url(#accGlow)"></path>
+        <g stroke="#9498ad" stroke-width="16" stroke-linecap="round">
+          <line x1="270" y1="368" x2="342" y2="368"></line>
+          <line x1="682" y1="368" x2="754" y2="368"></line>
+          <line x1="718" y1="332" x2="718" y2="404"></line>
+        </g>
+        <g transform="rotate(42 512 512)" filter="url(#accGlow)">
+          <path d="M 512 150 L 532 500 L 492 500 Z" fill="#9184d9"></path>
+        </g>
+        <circle cx="512" cy="512" r="30" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="12" fill="#14151f"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-4b" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="398" fill="none" stroke="#07080e" stroke-width="60" opacity="0.85"></circle>
+        <circle cx="512" cy="512" r="398" fill="none" stroke="#8a8ea3" stroke-width="46" stroke-dasharray="4 37.68" stroke-dashoffset="2"></circle>
+        <path d="M 512 114 A 398 398 0 0 1 778 216" fill="none" stroke="#9184d9" stroke-width="52" filter="url(#accGlow)"></path>
+        <rect x="500" y="76" width="24" height="78" rx="6" fill="#f2f3f8"></rect>
+        <circle cx="512" cy="512" r="368" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="2"></circle>
+        <circle cx="512" cy="512" r="340" fill="none" stroke="#7d8196" stroke-width="26" stroke-dasharray="3 32.61" stroke-dashoffset="1.5"></circle>
+
+        <g transform="rotate(303 512 512)"><rect x="500" y="368" width="24" height="172" rx="12" fill="#4a4e63"></rect></g>
+        <g transform="rotate(57 512 512)"><rect x="504" y="312" width="16" height="228" rx="8" fill="#4a4e63"></rect></g>
+
+        <g stroke="#9498ad" stroke-width="16" stroke-linecap="round">
+          <line x1="298" y1="396" x2="366" y2="396"></line>
+          <line x1="658" y1="396" x2="726" y2="396"></line>
+          <line x1="692" y1="362" x2="692" y2="430"></line>
+        </g>
+        <g transform="rotate(38 512 512)" filter="url(#accGlow)">
+          <rect x="500" y="176" width="24" height="352" rx="12" fill="#9184d9"></rect>
+          <path d="M 512 138 L 538 190 L 486 190 Z" fill="#9184d9"></path>
+        </g>
+        <circle cx="512" cy="512" r="34" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="14" fill="#14151f"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+    <symbol id="ic-5a" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#83879c" stroke-width="20" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#d6d9e4" stroke-width="42" stroke-dasharray="10 125.31" stroke-dashoffset="5"></circle>
+
+        <path d="M 243.9 287 A 350 350 0 0 1 780.1 287" fill="none" stroke="#07080e" stroke-width="58" opacity="0.9"></path>
+        <path d="M 243.9 287 A 350 350 0 0 1 780.1 287" fill="none" stroke="#6c7085" stroke-width="4"></path>
+        <g fill="#c9ccda">
+          <g transform="rotate(-50 512 512)"><rect x="502" y="126" width="20" height="72" rx="4"></rect></g>
+          <g transform="rotate(50 512 512)"><rect x="502" y="126" width="20" height="72" rx="4"></rect></g>
+        </g>
+        <path d="M 512 162 A 350 350 0 0 1 746 251" fill="none" stroke="#9184d9" stroke-width="48" filter="url(#accGlow)"></path>
+        <rect x="500" y="120" width="24" height="84" rx="6" fill="#f4f5fa"></rect>
+
+        <g transform="rotate(303 512 512)"><rect x="500" y="360" width="24" height="180" rx="12" fill="#4a4e63"></rect></g>
+        <g transform="rotate(57 512 512)"><rect x="504" y="296" width="16" height="244" rx="8" fill="#4a4e63"></rect></g>
+        <g stroke="#9498ad" stroke-width="16" stroke-linecap="round">
+          <line x1="262" y1="404" x2="330" y2="404"></line>
+          <line x1="694" y1="404" x2="762" y2="404"></line>
+          <line x1="728" y1="370" x2="728" y2="438"></line>
+        </g>
+        <g transform="rotate(42 512 512)" filter="url(#accGlow)">
+          <path d="M 512 176 L 532 500 L 492 500 Z" fill="#9184d9"></path>
+        </g>
+        <circle cx="512" cy="512" r="30" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="12" fill="#14151f"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-5b" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#83879c" stroke-width="20" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#d6d9e4" stroke-width="42" stroke-dasharray="10 125.31" stroke-dashoffset="5"></circle>
+
+        <path d="M 243.9 287 A 350 350 0 0 1 780.1 287" fill="none" stroke="#07080e" stroke-width="58" opacity="0.9"></path>
+        <path d="M 463.3 165.4 A 350 350 0 0 1 755.1 260.2" fill="none" stroke="#9184d9" stroke-width="26" filter="url(#accGlow)"></path>
+        <g fill="#9184d9">
+          <g transform="rotate(-8 512 512)"><rect x="505" y="124" width="14" height="76" rx="4"></rect></g>
+          <g transform="rotate(44 512 512)"><rect x="505" y="124" width="14" height="76" rx="4"></rect></g>
+        </g>
+        <circle cx="620" cy="179" r="27" fill="#9184d9" filter="url(#accGlow)"></circle>
+        <rect x="500" y="118" width="24" height="88" rx="6" fill="#f4f5fa"></rect>
+
+        <g transform="rotate(303 512 512)"><rect x="500" y="360" width="24" height="180" rx="12" fill="#4a4e63"></rect></g>
+        <g transform="rotate(57 512 512)"><rect x="504" y="296" width="16" height="244" rx="8" fill="#4a4e63"></rect></g>
+        <g stroke="#9498ad" stroke-width="16" stroke-linecap="round">
+          <line x1="262" y1="404" x2="330" y2="404"></line>
+          <line x1="694" y1="404" x2="762" y2="404"></line>
+          <line x1="728" y1="370" x2="728" y2="438"></line>
+        </g>
+        <g transform="rotate(18 512 512)" filter="url(#accGlow)">
+          <path d="M 512 214 L 530 500 L 494 500 Z" fill="#9184d9"></path>
+        </g>
+        <circle cx="512" cy="512" r="30" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="12" fill="#14151f"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+    <symbol id="ic-6a" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#83879c" stroke-width="20" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#d6d9e4" stroke-width="42" stroke-dasharray="10 125.31" stroke-dashoffset="5"></circle>
+
+        <path d="M 403.8 179.1 A 350 350 0 0 1 854.3 439.2" fill="none" stroke="#07080e" stroke-width="96" opacity="0.95"></path>
+        <path d="M 403.8 179.1 A 350 350 0 0 1 854.3 439.2" fill="none" stroke="#6c7085" stroke-width="4"></path>
+        <path d="M 608.5 175.6 A 350 350 0 0 1 826.6 358.6" fill="none" stroke="#f2a54a" stroke-width="16" filter="url(#accGlow)"></path>
+        <g fill="#f2a54a">
+          <g transform="rotate(16 512 512)"><rect x="503" y="107" width="18" height="110" rx="4"></rect></g>
+          <g transform="rotate(64 512 512)"><rect x="503" y="107" width="18" height="110" rx="4"></rect></g>
+        </g>
+        <circle cx="737" cy="244" r="30" fill="#f2a54a" filter="url(#accGlow)"></circle>
+        <rect x="501" y="110" width="22" height="104" rx="5" fill="#f4f5fa"></rect>
+
+        <g transform="rotate(303 512 512)"><rect x="500" y="360" width="24" height="180" rx="12" fill="#4a4e63"></rect></g>
+        <g transform="rotate(57 512 512)"><rect x="504" y="296" width="16" height="244" rx="8" fill="#4a4e63"></rect></g>
+        <g stroke="#9498ad" stroke-width="16" stroke-linecap="round">
+          <line x1="262" y1="404" x2="330" y2="404"></line>
+          <line x1="694" y1="452" x2="762" y2="452"></line>
+          <line x1="728" y1="418" x2="728" y2="486"></line>
+        </g>
+        <circle cx="512" cy="512" r="30" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="12" fill="#9184d9"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-6b" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#83879c" stroke-width="20" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#d6d9e4" stroke-width="42" stroke-dasharray="10 125.31" stroke-dashoffset="5"></circle>
+
+        <g transform="rotate(214 512 512)"><rect x="500" y="360" width="24" height="180" rx="12" fill="#4a4e63"></rect></g>
+        <g transform="rotate(128 512 512)"><rect x="504" y="296" width="16" height="244" rx="8" fill="#4a4e63"></rect></g>
+        <circle cx="512" cy="512" r="26" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="10" fill="#9184d9"></circle>
+
+        <rect x="300" y="236" width="470" height="118" rx="30" fill="#07080e" opacity="0.95"></rect>
+        <rect x="300" y="236" width="470" height="118" rx="30" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="3"></rect>
+        <line x1="332" y1="330" x2="738" y2="330" stroke="#6c7085" stroke-width="5"></line>
+        <line x1="332" y1="322" x2="738" y2="322" stroke="#8a8ea3" stroke-width="26" stroke-dasharray="5 35.1"></line>
+        <rect x="428" y="252" width="18" height="86" rx="4" fill="#f4f5fa"></rect>
+        <line x1="500" y1="288" x2="690" y2="288" stroke="#f2a54a" stroke-width="14" filter="url(#accGlow)"></line>
+        <g fill="#f2a54a">
+          <rect x="492" y="240" width="18" height="98" rx="4"></rect>
+          <rect x="682" y="240" width="18" height="98" rx="4"></rect>
+        </g>
+        <circle cx="596" cy="288" r="31" fill="#f2a54a" filter="url(#accGlow)"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+    <symbol id="ic-7a" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#83879c" stroke-width="20" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#d6d9e4" stroke-width="42" stroke-dasharray="10 125.31" stroke-dashoffset="5"></circle>
+        <rect x="498" y="88" width="28" height="92" rx="6" fill="#f2f3f8"></rect>
+
+        <path d="M 655.7 820.2 A 340 340 0 0 1 203.8 655.7" fill="none" stroke="#07080e" stroke-width="98" opacity="0.95"></path>
+        <path d="M 655.7 820.2 A 340 340 0 0 1 203.8 655.7" fill="none" stroke="#6c7085" stroke-width="4"></path>
+        <g transform="rotate(185 512 512)"><rect x="501" y="120" width="22" height="104" rx="5" fill="#f4f5fa"></rect></g>
+        <path d="M 418.3 838.8 A 340 340 0 0 1 267.4 748.2" fill="none" stroke="#f2a54a" stroke-width="16" filter="url(#accGlow)"></path>
+        <g fill="#f2a54a">
+          <g transform="rotate(196 512 512)"><rect x="503" y="117" width="18" height="110" rx="4"></rect></g>
+          <g transform="rotate(226 512 512)"><rect x="503" y="117" width="18" height="110" rx="4"></rect></g>
+        </g>
+        <circle cx="337" cy="803" r="30" fill="#f2a54a" filter="url(#accGlow)"></circle>
+
+        <g transform="rotate(322 512 512)"><rect x="500" y="352" width="24" height="188" rx="12" fill="#4a4e63"></rect></g>
+        <g transform="rotate(38 512 512)"><rect x="504" y="286" width="16" height="254" rx="8" fill="#4a4e63"></rect></g>
+        <circle cx="512" cy="512" r="30" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="12" fill="#9184d9"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-7b" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="387" fill="none" stroke="#83879c" stroke-width="20" stroke-dasharray="4 36.52" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="378" fill="none" stroke="#d6d9e4" stroke-width="42" stroke-dasharray="10 125.31" stroke-dashoffset="5"></circle>
+        <rect x="498" y="88" width="28" height="92" rx="6" fill="#f2f3f8"></rect>
+
+        <path d="M 790.5 317 A 340 340 0 0 1 707 790.5" fill="none" stroke="#07080e" stroke-width="98" opacity="0.95"></path>
+        <path d="M 790.5 317 A 340 340 0 0 1 707 790.5" fill="none" stroke="#6c7085" stroke-width="4"></path>
+        <g transform="rotate(72 512 512)"><rect x="501" y="120" width="22" height="104" rx="5" fill="#f4f5fa"></rect></g>
+        <path d="M 850.1 476.5 A 340 340 0 0 1 787.1 711.9" fill="none" stroke="#f2a54a" stroke-width="16" filter="url(#accGlow)"></path>
+        <g fill="#f2a54a">
+          <g transform="rotate(84 512 512)"><rect x="503" y="117" width="18" height="110" rx="4"></rect></g>
+          <g transform="rotate(126 512 512)"><rect x="503" y="117" width="18" height="110" rx="4"></rect></g>
+        </g>
+        <circle cx="840" cy="600" r="30" fill="#f2a54a" filter="url(#accGlow)"></circle>
+
+        <g transform="rotate(300 512 512)"><rect x="500" y="352" width="24" height="188" rx="12" fill="#4a4e63"></rect></g>
+        <g transform="rotate(20 512 512)"><rect x="504" y="286" width="16" height="254" rx="8" fill="#4a4e63"></rect></g>
+        <circle cx="512" cy="512" r="30" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="12" fill="#9184d9"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+    <symbol id="ic-8a" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="340" fill="none" stroke="#83879c" stroke-width="16" stroke-dasharray="4 31.6" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="352" fill="none" stroke="#d6d9e4" stroke-width="40" stroke-dasharray="10 174.29" stroke-dashoffset="5"></circle>
+        <g transform="rotate(322 512 512)"><rect x="500" y="352" width="24" height="188" rx="12" fill="#4a4e63"></rect></g>
+        <g transform="rotate(38 512 512)"><rect x="504" y="300" width="16" height="240" rx="8" fill="#4a4e63"></rect></g>
+        <circle cx="512" cy="512" r="26" fill="#dfe2ec"></circle>
+        <circle cx="512" cy="512" r="10" fill="#14151f"></circle>
+        <path d="M 512 108 A 404 404 0 0 1 830.4 262.4" fill="none" stroke="#f2a54a" stroke-width="40" filter="url(#accGlow)"></path>
+        <rect x="500" y="76" width="24" height="96" rx="5" fill="#f4f5fa"></rect>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-8b" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="340" fill="none" stroke="#83879c" stroke-width="16" stroke-dasharray="4 31.6" stroke-dashoffset="2"></circle>
+        <circle cx="512" cy="512" r="352" fill="none" stroke="#d6d9e4" stroke-width="40" stroke-dasharray="10 174.29" stroke-dashoffset="5"></circle>
+        <g transform="rotate(322 512 512)"><rect x="500" y="352" width="24" height="188" rx="12" fill="#4a4e63"></rect></g>
+        <g transform="rotate(38 512 512)"><rect x="504" y="300" width="16" height="240" rx="8" fill="#4a4e63"></rect></g>
+        <circle cx="512" cy="512" r="26" fill="#dfe2ec"></circle>
+        <circle cx="512" cy="512" r="10" fill="#14151f"></circle>
+        <path d="M 360.7 137.3 A 404 404 0 0 1 838.8 274.5" fill="none" stroke="#f2a54a" stroke-width="40" filter="url(#accGlow)"></path>
+        <rect x="500" y="76" width="24" height="96" rx="5" fill="#f4f5fa"></rect>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+    <symbol id="ic-9a" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="354" fill="none" stroke="#8a8ea3" stroke-width="14" stroke-dasharray="3 34.07" stroke-dashoffset="1.5"></circle>
+        <circle cx="512" cy="512" r="368" fill="none" stroke="#e2e4ec" stroke-width="40" stroke-dasharray="11 181.68" stroke-dashoffset="5.5"></circle>
+        <rect x="499" y="118" width="26" height="76" rx="5" fill="#f6f7fb"></rect>
+
+        <g transform="rotate(322 512 512)"><rect x="497" y="290" width="30" height="250" rx="15" fill="url(#hand)"></rect></g>
+        <g transform="rotate(38 512 512)"><rect x="502" y="210" width="20" height="330" rx="10" fill="url(#hand)"></rect></g>
+        <circle cx="512" cy="512" r="24" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="9" fill="#14151f"></circle>
+
+        <path d="M 371.8 126.7 A 410 410 0 0 1 859.7 294.7" fill="none" stroke="#f2a54a" stroke-width="36" filter="url(#accGlow)"></path>
+        <circle cx="692" cy="144" r="16" fill="#fffaf0"></circle>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-9b" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="512" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="512" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <circle cx="512" cy="512" r="454" fill="none" stroke="#31344a" stroke-opacity="0.85" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="512" r="436" fill="none" stroke="#06070d" stroke-opacity="0.7" stroke-width="14"></circle>
+      <circle cx="512" cy="512" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip)">
+        <circle cx="512" cy="512" r="354" fill="none" stroke="#8a8ea3" stroke-width="14" stroke-dasharray="3 34.07" stroke-dashoffset="1.5"></circle>
+        <circle cx="512" cy="512" r="368" fill="none" stroke="#e2e4ec" stroke-width="40" stroke-dasharray="11 181.68" stroke-dashoffset="5.5"></circle>
+        <rect x="499" y="118" width="26" height="76" rx="5" fill="#f6f7fb"></rect>
+
+        <g transform="rotate(322 512 512)"><rect x="497" y="290" width="30" height="250" rx="15" fill="url(#hand)"></rect></g>
+        <g transform="rotate(38 512 512)"><rect x="502" y="210" width="20" height="330" rx="10" fill="url(#hand)"></rect></g>
+        <circle cx="512" cy="512" r="24" fill="#eceef5"></circle>
+        <circle cx="512" cy="512" r="9" fill="#14151f"></circle>
+
+        <path d="M 371.8 126.7 A 410 410 0 0 1 859.7 294.7" fill="none" stroke="#f2a54a" stroke-width="36" filter="url(#accGlow)"></path>
+        <g transform="rotate(26 512 512)"><rect x="505" y="78" width="14" height="52" rx="3" fill="#0d0e17"></rect></g>
+        <ellipse cx="360" cy="316" rx="360" ry="286" transform="rotate(-28 360 316)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="512" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"></circle>
+    </symbol>
+    <radialGradient id="faceD" cx="36%" cy="26%" r="86%">
+      <stop offset="0%" stop-color="#22243a"></stop>
+      <stop offset="62%" stop-color="#111220"></stop>
+      <stop offset="100%" stop-color="#06070c"></stop>
+    </radialGradient>
+    <radialGradient id="groundD" cx="34%" cy="24%" r="88%">
+      <stop offset="0%" stop-color="#16182a"></stop>
+      <stop offset="58%" stop-color="#0c0d18"></stop>
+      <stop offset="100%" stop-color="#04050a"></stop>
+    </radialGradient>
+    <linearGradient id="steelD" x1="12%" y1="0%" x2="88%" y2="100%">
+      <stop offset="0%" stop-color="#4e5164"></stop>
+      <stop offset="18%" stop-color="#9296ab"></stop>
+      <stop offset="38%" stop-color="#404354"></stop>
+      <stop offset="55%" stop-color="#7d8195"></stop>
+      <stop offset="74%" stop-color="#333645"></stop>
+      <stop offset="100%" stop-color="#5b5f72"></stop>
+    </linearGradient>
+    <linearGradient id="steelT" x1="12%" y1="0%" x2="88%" y2="100%">
+      <stop offset="0%" stop-color="#6f6f6f"></stop>
+      <stop offset="18%" stop-color="#d8d8d8"></stop>
+      <stop offset="38%" stop-color="#5c5c5c"></stop>
+      <stop offset="55%" stop-color="#bdbdbd"></stop>
+      <stop offset="74%" stop-color="#4a4a4a"></stop>
+      <stop offset="100%" stop-color="#8a8a8a"></stop>
+    </linearGradient>
+    <radialGradient id="faceT" cx="36%" cy="26%" r="86%">
+      <stop offset="0%" stop-color="#2e2e2e"></stop>
+      <stop offset="62%" stop-color="#1a1a1a"></stop>
+      <stop offset="100%" stop-color="#0b0b0b"></stop>
+    </radialGradient>
+
+    <symbol id="ic-10" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="504" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="504" r="472" fill="none" stroke="#06070d" stroke-opacity="0.55" stroke-width="5"></circle>
+      <path d="M 178 838 A 472 472 0 0 1 846 170" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="7"></path>
+      <circle cx="512" cy="504" r="454" fill="none" stroke="#2c2f43" stroke-opacity="0.9" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="504" r="436" fill="none" stroke="#06070d" stroke-opacity="0.75" stroke-width="14"></circle>
+      <circle cx="512" cy="504" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip10)">
+        <circle cx="512" cy="504" r="412" fill="none" stroke="#000000" stroke-opacity="0.35" stroke-width="34"></circle>
+        <circle cx="512" cy="504" r="346" fill="none" stroke="#8a8ea3" stroke-width="14" stroke-dasharray="3 33.24" stroke-dashoffset="1.5"></circle>
+        <circle cx="512" cy="504" r="360" fill="none" stroke="#e2e4ec" stroke-width="40" stroke-dasharray="11 177.5" stroke-dashoffset="5.5"></circle>
+        <rect x="499" y="118" width="26" height="74" rx="5" fill="#f6f7fb"></rect>
+
+        <g transform="translate(12 16)" opacity="0.4">
+          <g transform="rotate(322 512 504)"><rect x="497" y="284" width="30" height="248" rx="15" fill="#000000"></rect></g>
+          <g transform="rotate(38 512 504)"><rect x="502" y="204" width="20" height="328" rx="10" fill="#000000"></rect></g>
+        </g>
+        <g transform="rotate(322 512 504)"><rect x="497" y="284" width="30" height="248" rx="15" fill="url(#hand)"></rect></g>
+        <g transform="rotate(38 512 504)"><rect x="502" y="204" width="20" height="328" rx="10" fill="url(#hand)"></rect></g>
+        <circle cx="512" cy="504" r="24" fill="#eceef5"></circle>
+        <circle cx="512" cy="504" r="9" fill="#14151f"></circle>
+
+        <path d="M 371.8 118.7 A 410 410 0 0 1 859.7 286.7" fill="none" stroke="#a9682a" stroke-width="40"></path>
+        <path d="M 371.8 118.7 A 410 410 0 0 1 859.7 286.7" fill="none" stroke="#f2a54a" stroke-width="30" filter="url(#accGlow)"></path>
+        <circle cx="694" cy="138" r="17" fill="#000000" opacity="0.35"></circle>
+        <circle cx="692" cy="136" r="17" fill="#fffaf0"></circle>
+        <ellipse cx="360" cy="308" rx="360" ry="286" transform="rotate(-28 360 308)" fill="url(#gloss)"></ellipse>
+      </g>
+      <circle cx="512" cy="504" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-10d" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#groundD)"></rect>
+      <circle cx="512" cy="504" r="472" fill="url(#steelD)"></circle>
+      <circle cx="512" cy="504" r="472" fill="none" stroke="#000000" stroke-opacity="0.6" stroke-width="5"></circle>
+      <path d="M 178 838 A 472 472 0 0 1 846 170" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="7"></path>
+      <circle cx="512" cy="504" r="454" fill="none" stroke="#1c1e2c" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="504" r="436" fill="none" stroke="#000000" stroke-opacity="0.8" stroke-width="14"></circle>
+      <circle cx="512" cy="504" r="428" fill="url(#faceD)"></circle>
+      <g clip-path="url(#faceClip10)">
+        <circle cx="512" cy="504" r="412" fill="none" stroke="#000000" stroke-opacity="0.45" stroke-width="34"></circle>
+        <circle cx="512" cy="504" r="346" fill="none" stroke="#5f6377" stroke-width="14" stroke-dasharray="3 33.24" stroke-dashoffset="1.5"></circle>
+        <circle cx="512" cy="504" r="360" fill="none" stroke="#aeb2c2" stroke-width="40" stroke-dasharray="11 177.5" stroke-dashoffset="5.5"></circle>
+        <rect x="499" y="118" width="26" height="74" rx="5" fill="#d7dae5"></rect>
+        <g transform="rotate(322 512 504)"><rect x="497" y="284" width="30" height="248" rx="15" fill="#9ca0b3"></rect></g>
+        <g transform="rotate(38 512 504)"><rect x="502" y="204" width="20" height="328" rx="10" fill="#9ca0b3"></rect></g>
+        <circle cx="512" cy="504" r="24" fill="#c3c7d4"></circle>
+        <circle cx="512" cy="504" r="9" fill="#0a0b12"></circle>
+        <path d="M 371.8 118.7 A 410 410 0 0 1 859.7 286.7" fill="none" stroke="#8a5322" stroke-width="40"></path>
+        <path d="M 371.8 118.7 A 410 410 0 0 1 859.7 286.7" fill="none" stroke="#e09437" stroke-width="30" filter="url(#accGlow)"></path>
+        <circle cx="692" cy="136" r="17" fill="#f7ead6"></circle>
+        <ellipse cx="360" cy="308" rx="360" ry="286" transform="rotate(-28 360 308)" fill="url(#gloss)" opacity="0.6"></ellipse>
+      </g>
+      <circle cx="512" cy="504" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-10t" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="#0d0d0d"></rect>
+      <circle cx="512" cy="504" r="472" fill="url(#steelT)"></circle>
+      <circle cx="512" cy="504" r="454" fill="none" stroke="#2a2a2a" stroke-width="22" stroke-dasharray="3 20.77" stroke-dashoffset="1.5"></circle>
+      <circle cx="512" cy="504" r="436" fill="none" stroke="#000000" stroke-opacity="0.8" stroke-width="14"></circle>
+      <circle cx="512" cy="504" r="428" fill="url(#faceT)"></circle>
+      <g clip-path="url(#faceClip10)">
+        <circle cx="512" cy="504" r="346" fill="none" stroke="#787878" stroke-width="14" stroke-dasharray="3 33.24" stroke-dashoffset="1.5"></circle>
+        <circle cx="512" cy="504" r="360" fill="none" stroke="#d5d5d5" stroke-width="40" stroke-dasharray="11 177.5" stroke-dashoffset="5.5"></circle>
+        <rect x="499" y="118" width="26" height="74" rx="5" fill="#f2f2f2"></rect>
+        <g transform="rotate(322 512 504)"><rect x="497" y="284" width="30" height="248" rx="15" fill="#cfcfcf"></rect></g>
+        <g transform="rotate(38 512 504)"><rect x="502" y="204" width="20" height="328" rx="10" fill="#cfcfcf"></rect></g>
+        <circle cx="512" cy="504" r="24" fill="#e8e8e8"></circle>
+        <circle cx="512" cy="504" r="9" fill="#141414"></circle>
+        <path d="M 371.8 118.7 A 410 410 0 0 1 859.7 286.7" fill="none" stroke="#6b6b6b" stroke-width="40"></path>
+        <path d="M 371.8 118.7 A 410 410 0 0 1 859.7 286.7" fill="none" stroke="#f0f0f0" stroke-width="30"></path>
+        <circle cx="692" cy="136" r="17" fill="#141414"></circle>
+      </g>
+      <circle cx="512" cy="504" r="428" fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="3"></circle>
+    </symbol>
+
+    <symbol id="ic-10s" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" fill="url(#ground)"></rect>
+      <circle cx="512" cy="504" r="472" fill="url(#steel)"></circle>
+      <circle cx="512" cy="504" r="436" fill="none" stroke="#06070d" stroke-opacity="0.75" stroke-width="16"></circle>
+      <circle cx="512" cy="504" r="428" fill="url(#face)"></circle>
+      <g clip-path="url(#faceClip10)">
+        <circle cx="512" cy="504" r="356" fill="none" stroke="#e2e4ec" stroke-width="54" stroke-dasharray="18 168.4" stroke-dashoffset="9"></circle>
+        <rect x="496" y="106" width="32" height="86" rx="6" fill="#f6f7fb"></rect>
+        <g transform="rotate(322 512 504)"><rect x="493" y="272" width="38" height="262" rx="19" fill="url(#hand)"></rect></g>
+        <g transform="rotate(38 512 504)"><rect x="499" y="188" width="26" height="346" rx="13" fill="url(#hand)"></rect></g>
+        <circle cx="512" cy="504" r="28" fill="#eceef5"></circle>
+        <path d="M 371.8 118.7 A 410 410 0 0 1 859.7 286.7" fill="none" stroke="#f2a54a" stroke-width="46"></path>
+        <circle cx="692" cy="136" r="21" fill="#fffaf0"></circle>
+      </g>
+    </symbol>
+
+    <clipPath id="faceClip10"><circle cx="512" cy="504" r="428"></circle></clipPath>
+  </defs><use href="#ic-10t" xlink:href="#ic-10t"></use></svg>
