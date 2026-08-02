@@ -569,25 +569,21 @@ private struct MicRadarView: View {
     private let ringCount = 3
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            rings
-            // Just the glyph, marking the spot. A caption here forced the rings
-            // to start well outside it to avoid slicing through the words, which
-            // is what stopped the pulse looking like it came from the microphone
-            // at all. The instruction already sits in the guidance line above.
-            Image(systemName: "mic.fill")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.accentColor)
-                .padding(.bottom, 1)
-        }
-        .accessibilityElement()
-        .accessibilityLabel(active
-                            ? "Listening at the microphone, bottom edge of the phone"
-                            : "Rest the watch on the microphone at the bottom edge of the phone")
+        rings
+            .accessibilityElement()
+            .accessibilityLabel(active
+                                ? "Listening at the microphone, bottom edge of the phone"
+                                : "Rest the watch on the microphone at the bottom edge of the phone")
     }
 
     private var rings: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
+        // The glyph lives inside this layer rather than as an overlay on it.
+        // As an overlay it was laid out against the safe area and bottomed out
+        // exactly one inset above the edge however much negative padding it was
+        // given — the ring origin is at the hardware edge, so the marker has to
+        // be free to go there too.
+        ZStack(alignment: .bottom) {
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
             Canvas { context, size in
                 // Slow: a quick pulse reads as an alert. This should feel like
                 // sonar — unhurried, and repeating.
@@ -626,6 +622,16 @@ private struct MicRadarView: View {
                                    style: StrokeStyle(lineWidth: 2))
                 }
             }
+            }
+
+            // Just the glyph, marking the spot. A caption here forced the rings
+            // to start well outside it to avoid slicing through the words, which
+            // is what stopped the pulse looking like it came from the microphone
+            // at all. The instruction already sits in the guidance line above.
+            Image(systemName: "mic.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.accentColor)
+                .padding(.bottom, 18)
         }
         .ignoresSafeArea(edges: .bottom)
     }
