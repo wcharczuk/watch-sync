@@ -12,6 +12,8 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            Rectangle().fill(Instrument.ground).ignoresSafeArea()
+
             VStack(spacing: 0) {
                 Picker("Mode", selection: $mode) {
                     ForEach(AppMode.allCases, id: \.self) { m in
@@ -39,6 +41,10 @@ struct ContentView: View {
                 SyncFlashView(hashMarkSeconds: hashMarkSeconds)
             }
         }
+        // The instrument ground is dark in both appearances, so semantic
+        // colours must resolve against dark or text vanishes in light mode.
+        .environment(\.colorScheme, .dark)
+        .tint(Instrument.amber)
     }
 
     private var syncView: some View {

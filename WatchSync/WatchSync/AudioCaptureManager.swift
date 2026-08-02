@@ -32,7 +32,10 @@ final class AudioCaptureManager: ObservableObject {
     /// Called on the audio thread with each mono buffer. Keep it cheap.
     var onBuffer: ((UnsafePointer<Float>, Int) -> Void)?
 
-    private let engine = AVAudioEngine()
+    // Built on first use, not at init: constructing the engine reaches for the
+    // input hardware, which is enough to make iOS raise the microphone prompt
+    // before the user has asked to measure anything.
+    private lazy var engine = AVAudioEngine()
     private let engineQueue = DispatchQueue(label: "audio.engine", qos: .userInitiated)
     private var running = false
 

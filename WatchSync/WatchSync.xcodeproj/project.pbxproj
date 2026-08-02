@@ -14,6 +14,7 @@
 		A1B2C3D40000000A /* AudioCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000001A /* AudioCaptureManager.swift */; };
 		A1B2C3D40000000B /* Timegrapher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000001B /* Timegrapher.swift */; };
 		A1B2C3D40000000C /* ReadingHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000001C /* ReadingHistory.swift */; };
+		A1B2C3D40000000D /* InstrumentStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000001D /* InstrumentStyle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +26,7 @@
 		A1B2C3D40000001A /* AudioCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureManager.swift; sourceTree = "<group>"; };
 		A1B2C3D40000001B /* Timegrapher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Timegrapher.swift; sourceTree = "<group>"; };
 		A1B2C3D40000001C /* ReadingHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingHistory.swift; sourceTree = "<group>"; };
+		A1B2C3D40000001D /* InstrumentStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstrumentStyle.swift; sourceTree = "<group>"; };
 		A1B2C3D400000090 /* Diagnostics.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Diagnostics.xcconfig; path = Config/Diagnostics.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -56,6 +58,7 @@
 				A1B2C3D40000001A /* AudioCaptureManager.swift */,
 				A1B2C3D40000001B /* Timegrapher.swift */,
 				A1B2C3D40000001C /* ReadingHistory.swift */,
+				A1B2C3D40000001D /* InstrumentStyle.swift */,
 				A1B2C3D400000013 /* Assets.xcassets */,
 				A1B2C3D400000090 /* Diagnostics.xcconfig */,
 			);
@@ -145,6 +148,7 @@
 				A1B2C3D40000000A /* AudioCaptureManager.swift in Sources */,
 				A1B2C3D40000000B /* Timegrapher.swift in Sources */,
 				A1B2C3D40000000C /* ReadingHistory.swift in Sources */,
+				A1B2C3D40000000D /* InstrumentStyle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

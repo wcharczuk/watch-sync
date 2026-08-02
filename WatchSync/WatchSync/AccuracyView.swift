@@ -26,7 +26,6 @@ struct AccuracyView: View {
 
     var body: some View {
         ZStack {
-            Color(uiColor: .systemBackground).ignoresSafeArea()
             switch viewModel.audio.permission {
             case .denied:
                 permissionDeniedView
@@ -322,14 +321,18 @@ struct AccuracyView: View {
             VStack(spacing: 5) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color(uiColor: .tertiarySystemFill))
+                        Capsule().fill(.clear).instrumentGroove(cornerRadius: 4)
                         Capsule()
-                            .fill(stage == .done ? Color.green : Color.accentColor)
+                            .fill(stage == .done
+                                  ? LinearGradient(colors: [.green, .green.opacity(0.7)],
+                                                   startPoint: .top, endPoint: .bottom)
+                                  : Instrument.band)
+                            .overlay(Capsule().fill(Instrument.gloss).opacity(0.7))
                             .frame(width: geo.size.width * CGFloat(r?.progress ?? 0))
                             .animation(.easeOut(duration: 0.4), value: r?.progress ?? 0)
                     }
                 }
-                .frame(height: 6)
+                .frame(height: 8)
                 HStack {
                     Text(precisionCaption)
                         .font(.system(size: 12))
@@ -364,10 +367,7 @@ struct AccuracyView: View {
 
     private var rateChart: some View {
         RateAxisView(result: viewModel.result)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(uiColor: .secondarySystemBackground))
-            )
+            .instrumentPanel(cornerRadius: 16)
     }
 
     // MARK: Metrics
@@ -413,10 +413,7 @@ struct AccuracyView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(uiColor: .secondarySystemBackground))
-        )
+        .instrumentPanel(cornerRadius: 12)
     }
 
     /// How well we can hear the tick — a judgement about the *audio*, never
@@ -507,7 +504,7 @@ struct AccuracyView: View {
                         .frame(height: 50)
                 }
                 .buttonStyle(.bordered)
-                .tint(.accentColor)
+                .tint(Instrument.amber)
                 .transition(.opacity.combined(with: .scale))
             }
 
@@ -679,11 +676,16 @@ private struct RateAxisView: View {
                 inset + CGFloat((value + limit) / (2 * limit)) * plotW
             }
 
-            // Axis.
+            // Axis, cut like a groove: a dark line with a light one under it.
             var axis = Path()
             axis.move(to: CGPoint(x: inset, y: axisY))
             axis.addLine(to: CGPoint(x: size.width - inset, y: axisY))
-            context.stroke(axis, with: .color(.secondary.opacity(0.4)),
+            context.stroke(axis, with: .color(.black.opacity(0.55)),
+                           style: StrokeStyle(lineWidth: 1.5))
+            var glint = Path()
+            glint.move(to: CGPoint(x: inset, y: axisY + 1.5))
+            glint.addLine(to: CGPoint(x: size.width - inset, y: axisY + 1.5))
+            context.stroke(glint, with: .color(.white.opacity(0.14)),
                            style: StrokeStyle(lineWidth: 1))
 
             var value = -limit
@@ -692,18 +694,19 @@ private struct RateAxisView: View {
                 var tick = Path()
                 tick.move(to: CGPoint(x: x(value), y: axisY - (isZero ? 8 : 4)))
                 tick.addLine(to: CGPoint(x: x(value), y: axisY + (isZero ? 8 : 4)))
-                context.stroke(tick, with: .color(.secondary.opacity(isZero ? 0.8 : 0.4)),
-                               style: StrokeStyle(lineWidth: isZero ? 1.5 : 1))
+                context.stroke(tick, with: .color(isZero ? Instrument.steelLight
+                                                         : Instrument.steelMid.opacity(0.8)),
+                               style: StrokeStyle(lineWidth: isZero ? 2 : 1))
                 context.draw(Text(isZero ? "0" : String(format: "%+.0f", value))
                     .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.secondary),
+                    .foregroundColor(Instrument.steelMid),
                              at: CGPoint(x: x(value), y: axisY + 16), anchor: .top)
                 value += step
             }
 
-            context.draw(Text("slow").font(.system(size: 9)).foregroundColor(.secondary),
+            context.draw(Text("slow").font(.system(size: 9)).foregroundColor(Instrument.steelMid),
                          at: CGPoint(x: inset, y: axisY + 32), anchor: .leading)
-            context.draw(Text("fast").font(.system(size: 9)).foregroundColor(.secondary),
+            context.draw(Text("fast").font(.system(size: 9)).foregroundColor(Instrument.steelMid),
                          at: CGPoint(x: size.width - inset, y: axisY + 32), anchor: .trailing)
 
             // Each independent sub-window, as a tick above the axis. The width of
@@ -713,24 +716,40 @@ private struct RateAxisView: View {
                 var mark = Path()
                 mark.move(to: CGPoint(x: x(sample.rate), y: axisY - 12))
                 mark.addLine(to: CGPoint(x: x(sample.rate), y: axisY - 26))
-                context.stroke(mark, with: .color(.secondary.opacity(0.45)),
+                context.stroke(mark, with: .color(Instrument.steelMid.opacity(0.55)),
                                style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
             }
             if !r.rateSamples.isEmpty {
                 context.draw(Text("\(r.rateSamples.count) independent windows")
                     .font(.system(size: 9))
-                    .foregroundColor(.secondary),
+                    .foregroundColor(Instrument.steelMid),
                              at: CGPoint(x: size.width / 2, y: axisY - 34), anchor: .bottom)
             }
 
-            // The reading: a bar the width of the ±, with the marker on it.
+            // The reading, drawn the way the icon draws it: an amber band for
+            // the measured range and a polished bead for the rate itself. The
+            // icon is a picture of this chart, so they should match.
             let barY = axisY - 2
-            let barRect = CGRect(x: x(rate - unc), y: barY - 3,
-                                 width: max(4, x(rate + unc) - x(rate - unc)), height: 6)
-            context.fill(Path(roundedRect: barRect, cornerRadius: 3),
-                         with: .color(.accentColor.opacity(0.35)))
-            let dot = Path(ellipseIn: CGRect(x: x(rate) - 5, y: barY - 5, width: 10, height: 10))
-            context.fill(dot, with: .color(.accentColor))
+            let barRect = CGRect(x: x(rate - unc), y: barY - 4,
+                                 width: max(6, x(rate + unc) - x(rate - unc)), height: 8)
+            let band = Path(roundedRect: barRect, cornerRadius: 4)
+            context.fill(band, with: .color(Instrument.amber.opacity(0.30)))
+            context.stroke(band, with: .color(Instrument.amber.opacity(0.85)),
+                           style: StrokeStyle(lineWidth: 1))
+
+            // Bead: highlight up and left, dark rim below — the same trick that
+            // makes the icon's marker look machined rather than printed.
+            let beadR: CGFloat = 7
+            let beadRect = CGRect(x: x(rate) - beadR, y: barY - beadR,
+                                  width: beadR * 2, height: beadR * 2)
+            context.fill(Path(ellipseIn: beadRect.insetBy(dx: -1.5, dy: -1.5)),
+                         with: .color(.black.opacity(0.45)))
+            context.fill(Path(ellipseIn: beadRect),
+                         with: .radialGradient(
+                            Gradient(colors: [.white, Instrument.dialText, Color(hex: 0x8B8FA4)]),
+                            center: CGPoint(x: beadRect.midX - beadR * 0.3,
+                                            y: beadRect.midY - beadR * 0.35),
+                            startRadius: 0, endRadius: beadR * 1.6))
         }
     }
 }
