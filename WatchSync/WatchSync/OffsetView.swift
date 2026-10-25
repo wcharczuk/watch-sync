@@ -55,27 +55,38 @@ struct OffsetView: View {
     // MARK: Content
 
     private var content: some View {
-        VStack(spacing: 14) {
-            readout
-            progressBar
-            viewfinder
-            Text(footnote)
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            Button(action: { viewModel.toggle() }) {
-                Label(viewModel.isMeasuring ? "Stop" : "Measure",
-                      systemImage: viewModel.isMeasuring ? "stop.fill" : "camera.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
+        GeometryReader { geo in
+            // Decided by the shape of the space, not by device or orientation:
+            // a phone on its side and a phone unfolded are both wider than
+            // tall, and stacking there squeezes the viewfinder — the one thing
+            // that wants every point it can get — between its own controls.
+            Group {
+                if geo.size.width > geo.size.height * 1.15 {
+                    HStack(spacing: 28) {
+                        viewfinder
+                        VStack(spacing: 14) {
+                            Spacer(minLength: 0)
+                            readout
+                            progressBar
+                            footnoteText
+                            Spacer(minLength: 0)
+                            measureButton
+                        }
+                        .frame(maxWidth: 340)
+                    }
+                } else {
+                    VStack(spacing: 14) {
+                        readout
+                        progressBar
+                        viewfinder
+                        footnoteText
+                        Spacer(minLength: 0)
+                        measureButton
+                    }
+                    .frame(maxWidth: 600)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(viewModel.isMeasuring ? .red : .green)
-            .disabled(!viewModel.camera.isAvailable)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(.horizontal)
         .padding(.top, 12)
@@ -85,6 +96,28 @@ struct OffsetView: View {
             viewModel.stop()
             viewModel.camera.stop()
         }
+    }
+
+    private var footnoteText: some View {
+        Text(footnote)
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var measureButton: some View {
+        Button(action: { viewModel.toggle() }) {
+            Label(viewModel.isMeasuring ? "Stop" : "Measure",
+                  systemImage: viewModel.isMeasuring ? "stop.fill" : "camera.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(viewModel.isMeasuring ? .red : .green)
+        .disabled(!viewModel.camera.isAvailable)
     }
 
     // MARK: Readout

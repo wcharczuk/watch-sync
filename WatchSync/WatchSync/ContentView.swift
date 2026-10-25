@@ -24,6 +24,7 @@ struct ContentView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .frame(maxWidth: 600)
                 .padding(.horizontal)
                 .padding(.top, 8)
 
@@ -31,14 +32,13 @@ struct ContentView: View {
                 case .sync:
                     syncView
                 case .accuracy:
-                    AccuracyView()
+                    // One column, however wide the window: on an unfolded
+                    // display the controls would otherwise stretch into bars.
+                    AccuracyView().frame(maxWidth: 600)
                 case .offset:
                     OffsetView()
                 }
             }
-            // One column, however wide the window: on an unfolded display the
-            // controls would otherwise stretch into bars a hand's width long.
-            .frame(maxWidth: 600)
 
             // Above everything, edge to edge. A sync flash you have to be
             // looking directly at defeats the point — it should be catchable

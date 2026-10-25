@@ -104,6 +104,9 @@ final class CameraCaptureManager: NSObject, ObservableObject {
     func attach(previewLayer: AVCaptureVideoPreviewLayer) {
         guard self.previewLayer !== previewLayer else { return }
         self.previewLayer = previewLayer
+        // A new layer when the layout changes shape: follow that one instead.
+        rotationObservation = nil
+        rotationCoordinator = nil
         sessionQueue.async { [weak self] in
             guard let device = self?.device else { return }
             DispatchQueue.main.async { self?.followRotation(of: device) }
