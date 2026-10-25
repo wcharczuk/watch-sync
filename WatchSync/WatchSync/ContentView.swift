@@ -3,10 +3,13 @@ import SwiftUI
 enum AppMode: String, CaseIterable {
     case sync = "Sync"
     case accuracy = "Accuracy"
+    case offset = "Offset"
 }
 
 struct ContentView: View {
-    @State private var mode: AppMode = .sync
+    /// `-mode Offset` on the launch command line opens straight onto a screen,
+    /// for screenshots and simulators that can't be tapped from a script.
+    @State private var mode = AppMode(rawValue: UserDefaults.standard.string(forKey: "mode") ?? "") ?? .sync
     @State private var hashMarkSeconds: Double = 0
     @State private var lastAppliedDelta: Int = 0
 
@@ -29,8 +32,13 @@ struct ContentView: View {
                     syncView
                 case .accuracy:
                     AccuracyView()
+                case .offset:
+                    OffsetView()
                 }
             }
+            // One column, however wide the window: on an unfolded display the
+            // controls would otherwise stretch into bars a hand's width long.
+            .frame(maxWidth: 600)
 
             // Above everything, edge to edge. A sync flash you have to be
             // looking directly at defeats the point — it should be catchable
